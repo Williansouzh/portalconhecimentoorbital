@@ -1,0 +1,13 @@
+services:
+  portal:
+    build: .
+    image: portal-do-conhecimento
+    container_name: portal-do-conhecimento
+    ports:
+      - "3200:3000"
+    volumes:
+      - portal-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  portal-data:

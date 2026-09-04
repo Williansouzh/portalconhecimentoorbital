@@ -19,6 +19,18 @@ npm run dev     # http://localhost:3000
 npm run build && npm start
 ```
 
+### Docker
+
+```bash
+docker compose up -d      # http://localhost:3200
+docker compose logs -f
+docker compose down       # para os containers e mantém o volume
+```
+
+A imagem é multi-stage e roda o build `standalone` do Next como usuário
+não-root. O volume `portal-data` guarda `/app/data`, onde fica o estado do
+store (favoritos, histórico, pesquisas), então ele sobrevive a restarts.
+
 ## Telas
 
 | Rota | Tela |
