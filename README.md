@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portal do Conhecimento — RioCard
 
-## Getting Started
+Base de conhecimento interna da RioCard: busca, leitura de procedimentos, espaço
+pessoal (favoritos/histórico) e gestão editorial. Implementação em Next.js do
+design entregue pelo Claude Design (handoff `Portal do Conhecimento.dc.html`).
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router) + TypeScript
+- **Backend no próprio Next.js**: route handlers em `app/api/*`
+- CSS puro com design tokens (claro/escuro) em `app/globals.css`
+- Fontes Archivo (títulos) e Figtree (texto) via `next/font`
+
+## Rodando
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run build && npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Telas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Rota | Tela |
+| --- | --- |
+| `/` | Home com busca em destaque, categorias, mais pesquisados, continuar lendo |
+| `/resultados?q=` | Resultados com filtros, ordenação, lista/cartões |
+| `/artigo/[id]` | Artigo com índice fixo, passos, avaliação e relacionados |
+| `/categorias` | As 8 áreas de conteúdo |
+| `/favoritos?tab=` | Favoritos, histórico, pesquisas recentes e recomendados |
+| `/admin` | Painel de gestão: métricas, lacunas de conteúdo, fluxo editorial |
+| `/admin/editor` | Editor de artigo |
+| `/estados` | Catálogo dos 11 estados de carregamento, vazio e erro |
+| `/design-system` | Cores, tipografia, espaçamento, botões, alertas |
+| `/mapa` | Mapa de telas, fluxo principal e decisões de UX |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API
 
-## Learn More
+| Rota | O que faz |
+| --- | --- |
+| `GET /api/search` | Busca com ranking, filtros (categoria/departamento/tipo/data) e ordenação |
+| `GET /api/suggestions` | Sugestões agrupadas (conteúdos, termos, categorias, sistemas, FAQ) |
+| `GET /api/articles/[id]` | Artigo, corpo e relacionados · `POST /api/articles` cria rascunho |
+| `GET/POST/DELETE /api/favorites` | Favoritos |
+| `GET/POST/DELETE /api/history` | Histórico de leitura |
+| `GET/POST/DELETE /api/searches` | Pesquisas recentes |
+| `POST /api/feedback` | Avaliação do artigo e aviso de conteúdo desatualizado |
+| `GET /api/home`, `GET /api/categories` | Dados agregados da home e categorias |
 
-To learn more about Next.js, take a look at the following resources:
+### Busca
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`lib/search.ts` implementa o comportamento definido no design: ignora acento e
+caixa, aceita prefixos, tolera um caractere errado (Levenshtein limitado) e
+expande sinônimos — "ticket" encontra "chamado", "password" encontra "senha".
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Persistência
 
-## Deploy on Vercel
+`lib/store.ts` mantém favoritos, histórico, pesquisas e rascunhos em memória com
+escrita em `data/state.json` (ignorado pelo git), sobrevivendo a reinícios do
+servidor. É o ponto de troca para um banco real: a mesma interface passa a
+consultar o banco sem mudar as rotas.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Conteúdo
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Os 10 artigos de exemplo ficam em `lib/data.ts`. Só o artigo `senha` tem corpo
+completo escrito (passo a passo, requisitos, FAQ) — os demais mostram apenas o
+resumo até que as equipes responsáveis escrevam o conteúdo.
