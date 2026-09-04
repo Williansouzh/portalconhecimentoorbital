@@ -1,11 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { Article } from "./types";
+import { query } from "./db";
+import { verifyPassword } from "./passwords";
 import type { Role } from "./auth";
+import type { Article } from "./types";
+import { rowToArticle, type ArticleRow } from "./rows";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const STATE_FILE = path.join(DATA_DIR, "state.json");
+export { hashPassword, verifyPassword } from "./passwords";
 
 export type UserRecord = {
   id: string;
@@ -17,229 +16,168 @@ export type UserRecord = {
   passwordHash: string;
 };
 
-export type UserState = {
-  favs: Record<string, boolean>;
-  hist: string[];
-  searches: string[];
-};
-
-type Draft = Partial<Article> & {
+type UserRow = {
   id: string;
-  title: string;
-  createdAt: string;
-  authorId?: string;
-  summary?: string;
-  content?: string;
-  keywords?: string[];
+  name: string;
+  short_name: string;
+  email: string;
+  dept: string;
+  role: Role;
+  password_hash: string;
 };
 
-type StoreShape = {
-  users: UserRecord[];
-  state: Record<string, UserState>;
-  drafts: Draft[];
-};
-
-// ---------- senhas ----------
-
-export function hashPassword(plain: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const derived = scryptSync(plain, salt, 64).toString("hex");
-  return `${salt}:${derived}`;
-}
-
-export function verifyPassword(plain: string, stored: string): boolean {
-  const [salt, expected] = stored.split(":");
-  if (!salt || !expected) return false;
-  const derived = scryptSync(plain, salt, 64);
-  const expectedBuf = Buffer.from(expected, "hex");
-  if (derived.length !== expectedBuf.length) return false;
-  return timingSafeEqual(derived, expectedBuf);
-}
-
-// ---------- seed ----------
-
-// Senha de demonstração dos usuários semente. Um deploy real troca isto por
-// SSO corporativo — daí o aviso no README.
-const SEED_PASSWORD = process.env.SEED_PASSWORD || "portal2026";
-
-const EMPTY_STATE: UserState = { favs: {}, hist: [], searches: [] };
-
-function seedUsers(): UserRecord[] {
-  return [
-    {
-      id: "ana",
-      name: "Ana Coutinho",
-      shortName: "Ana C.",
-      email: "ana.coutinho@riocard.com.br",
-      dept: "Operações",
-      role: "leitor",
-      passwordHash: hashPassword(SEED_PASSWORD),
-    },
-    {
-      id: "bruno",
-      name: "Bruno Lima",
-      shortName: "Bruno L.",
-      email: "bruno.lima@riocard.com.br",
-      dept: "RH · Pessoas",
-      role: "autor",
-      passwordHash: hashPassword(SEED_PASSWORD),
-    },
-    {
-      id: "carla",
-      name: "Carla Menezes",
-      shortName: "Carla M.",
-      email: "carla.menezes@riocard.com.br",
-      dept: "TI · Suporte",
-      role: "curador",
-      passwordHash: hashPassword(SEED_PASSWORD),
-    },
-  ];
-}
-
-// Estado inicial só da Ana, para a demo abrir com conteúdo na tela.
-function seedState(): Record<string, UserState> {
+function toUser(r: UserRow): UserRecord {
   return {
-    ana: {
-      favs: { senha: true, remoto: true, reembolso: true },
-      hist: ["senha", "remoto", "chamados", "vt", "email"],
-      searches: ["redefinir senha", "férias 2026", "reembolso combustível", "sap bloqueado"],
-    },
+    id: r.id,
+    name: r.name,
+    shortName: r.short_name,
+    email: r.email,
+    dept: r.dept,
+    role: r.role,
+    passwordHash: r.password_hash,
   };
-}
-
-function seedStore(): StoreShape {
-  return { users: seedUsers(), state: seedState(), drafts: [] };
-}
-
-// O cache vive no globalThis, não no escopo do módulo: server components e
-// route handlers são empacotados em chunks diferentes, e cada chunk teria a
-// sua própria cópia do módulo — dois caches divergentes gravando por cima um
-// do outro no mesmo arquivo. No global existe um só por processo.
-declare global {
-  var __portalStore: StoreShape | undefined;
-}
-
-function load(): StoreShape {
-  if (globalThis.__portalStore) return globalThis.__portalStore;
-  let loaded: StoreShape;
-  try {
-    const raw = fs.readFileSync(STATE_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<StoreShape>;
-    loaded = {
-      users: parsed.users?.length ? parsed.users : seedUsers(),
-      state: parsed.state ?? seedState(),
-      drafts: parsed.drafts ?? [],
-    };
-  } catch {
-    loaded = seedStore();
-  }
-  globalThis.__portalStore = loaded;
-  persist();
-  return loaded;
-}
-
-function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(STATE_FILE, JSON.stringify(globalThis.__portalStore, null, 2));
-  } catch {
-    // Best-effort: o cache em memória segue autoritativo neste processo
-    // mesmo que a escrita falhe.
-  }
-}
-
-function userState(userId: string): UserState {
-  const s = load();
-  if (!s.state[userId]) s.state[userId] = { ...EMPTY_STATE, favs: {}, hist: [], searches: [] };
-  return s.state[userId];
 }
 
 // ---------- usuários ----------
 
-export function findUserByEmail(email: string): UserRecord | undefined {
-  const wanted = email.trim().toLowerCase();
-  return load().users.find((u) => u.email.toLowerCase() === wanted);
+export async function findUserByEmail(email: string): Promise<UserRecord | undefined> {
+  const rows = await query<UserRow>("SELECT * FROM users WHERE lower(email) = lower($1)", [email.trim()]);
+  return rows[0] ? toUser(rows[0]) : undefined;
 }
 
-export function findUserById(id: string): UserRecord | undefined {
-  return load().users.find((u) => u.id === id);
+export async function findUserById(id: string): Promise<UserRecord | undefined> {
+  const rows = await query<UserRow>("SELECT * FROM users WHERE id = $1", [id]);
+  return rows[0] ? toUser(rows[0]) : undefined;
+}
+
+export async function authenticate(email: string, password: string): Promise<UserRecord | null> {
+  const user = await findUserByEmail(email);
+  if (!user || !verifyPassword(password, user.passwordHash)) return null;
+  return user;
 }
 
 // ---------- favoritos ----------
 
-export function getFavorites(userId: string): Record<string, boolean> {
-  return userState(userId).favs;
+export async function getFavoriteIds(userId: string): Promise<Set<string>> {
+  const rows = await query<{ article_id: string }>("SELECT article_id FROM favorites WHERE user_id = $1", [userId]);
+  return new Set(rows.map((r) => r.article_id));
 }
 
-export function toggleFavorite(userId: string, id: string): boolean {
-  const st = userState(userId);
-  st.favs[id] = !st.favs[id];
-  persist();
-  return st.favs[id];
+export async function getFavoriteArticles(userId: string): Promise<Article[]> {
+  const rows = await query<ArticleRow>(
+    `SELECT a.* FROM favorites f JOIN articles a ON a.id = f.article_id
+     WHERE f.user_id = $1 ORDER BY f.created_at DESC`,
+    [userId]
+  );
+  return rows.map(rowToArticle);
 }
 
-export function clearFavorites(userId: string) {
-  userState(userId).favs = {};
-  persist();
+export async function toggleFavorite(userId: string, articleId: string): Promise<boolean> {
+  const removed = await query(
+    "DELETE FROM favorites WHERE user_id = $1 AND article_id = $2 RETURNING article_id",
+    [userId, articleId]
+  );
+  if (removed.length > 0) return false;
+  await query("INSERT INTO favorites (user_id, article_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [userId, articleId]);
+  return true;
+}
+
+export async function clearFavorites(userId: string): Promise<void> {
+  await query("DELETE FROM favorites WHERE user_id = $1", [userId]);
 }
 
 // ---------- histórico ----------
 
-export function getHistory(userId: string): string[] {
-  return userState(userId).hist;
+export async function getHistoryArticles(userId: string): Promise<Article[]> {
+  const rows = await query<ArticleRow>(
+    `SELECT a.* FROM history h JOIN articles a ON a.id = h.article_id
+     WHERE h.user_id = $1 ORDER BY h.viewed_at DESC LIMIT 30`,
+    [userId]
+  );
+  return rows.map(rowToArticle);
 }
 
-export function pushHistory(userId: string, id: string) {
-  const st = userState(userId);
-  st.hist = [id, ...st.hist.filter((h) => h !== id)].slice(0, 30);
-  persist();
+export async function pushHistory(userId: string, articleId: string): Promise<void> {
+  await query(
+    `INSERT INTO history (user_id, article_id) VALUES ($1, $2)
+     ON CONFLICT (user_id, article_id) DO UPDATE SET viewed_at = now()`,
+    [userId, articleId]
+  );
 }
 
-export function removeFromHistory(userId: string, id: string) {
-  const st = userState(userId);
-  st.hist = st.hist.filter((h) => h !== id);
-  persist();
+export async function removeFromHistory(userId: string, articleId: string): Promise<void> {
+  await query("DELETE FROM history WHERE user_id = $1 AND article_id = $2", [userId, articleId]);
 }
 
-export function clearHistory(userId: string) {
-  userState(userId).hist = [];
-  persist();
+export async function clearHistory(userId: string): Promise<void> {
+  await query("DELETE FROM history WHERE user_id = $1", [userId]);
 }
 
 // ---------- pesquisas recentes ----------
 
-export function getSearches(userId: string): string[] {
-  return userState(userId).searches;
+export async function getSearches(userId: string): Promise<string[]> {
+  const rows = await query<{ term: string }>(
+    "SELECT term FROM recent_searches WHERE user_id = $1 ORDER BY searched_at DESC LIMIT 20",
+    [userId]
+  );
+  return rows.map((r) => r.term);
 }
 
-export function addSearch(userId: string, q: string) {
-  const trimmed = q.trim();
+export async function addSearch(userId: string, term: string): Promise<void> {
+  const trimmed = term.trim();
   if (!trimmed) return;
-  const st = userState(userId);
-  st.searches = [trimmed, ...st.searches.filter((x) => x.toLowerCase() !== trimmed.toLowerCase())].slice(0, 20);
-  persist();
+  await query(
+    `INSERT INTO recent_searches (user_id, term) VALUES ($1, $2)
+     ON CONFLICT (user_id, term) DO UPDATE SET searched_at = now()`,
+    [userId, trimmed]
+  );
 }
 
-export function removeSearch(userId: string, q: string) {
-  const st = userState(userId);
-  st.searches = st.searches.filter((x) => x !== q);
-  persist();
+export async function removeSearch(userId: string, term: string): Promise<void> {
+  await query("DELETE FROM recent_searches WHERE user_id = $1 AND term = $2", [userId, term]);
 }
 
-export function clearSearches(userId: string) {
-  userState(userId).searches = [];
-  persist();
+export async function clearSearches(userId: string): Promise<void> {
+  await query("DELETE FROM recent_searches WHERE user_id = $1", [userId]);
 }
 
-// ---------- rascunhos ----------
+// ---------- artigos ----------
 
-export function getDrafts(): Draft[] {
-  return load().drafts;
+export async function findArticle(id: string): Promise<Article | undefined> {
+  const rows = await query<ArticleRow>("SELECT * FROM articles WHERE id = $1", [id]);
+  return rows[0] ? rowToArticle(rows[0]) : undefined;
 }
 
-export function addDraft(draft: Draft) {
-  const s = load();
-  s.drafts = [draft, ...s.drafts];
-  persist();
-  return draft;
+export async function getRelated(articleId: string, limit = 3): Promise<Article[]> {
+  const rows = await query<ArticleRow>(
+    `SELECT * FROM articles WHERE id <> $1 AND status = 'publicado' ORDER BY views DESC LIMIT $2`,
+    [articleId, limit]
+  );
+  return rows.map(rowToArticle);
+}
+
+export async function createDraft(input: {
+  title: string;
+  summary?: string;
+  cat?: string;
+  dept?: string;
+  keywords?: string[];
+  authorId: string;
+}): Promise<{ id: string; title: string }> {
+  const id = `draft-${Date.now().toString(36)}`;
+  await query(
+    `INSERT INTO articles (id, title, cat, dept, type, read_time, updated_at, snippet, path, status, keywords, author_id)
+     VALUES ($1,$2,$3,$4,'Procedimento','—', current_date, $5, $6, 'revisao', $7, $8)`,
+    [
+      id,
+      input.title,
+      input.cat ?? "Tecnologia",
+      input.dept ?? "TI · Suporte",
+      input.summary ?? "",
+      `Início · ${input.cat ?? "Tecnologia"}`,
+      input.keywords ?? [],
+      input.authorId,
+    ]
+  );
+  return { id, title: input.title };
 }

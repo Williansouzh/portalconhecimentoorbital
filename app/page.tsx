@@ -7,7 +7,7 @@ import { CategoryGlyphIcon } from "@/components/Icons";
 
 export default async function HomePage() {
   const session = await requireSession();
-  const { topSearched, recent, continueReading, favList, homeCategories, popular } = getHomeData(session.id);
+  const { topSearched, recent, continueReading, favList, homeCategories, popular } = await getHomeData(session.id);
 
   return (
     <main className="main-loose">

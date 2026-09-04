@@ -1,12 +1,15 @@
-import { articles } from "./data";
+import { query } from "./db";
+import { rowToArticle, type ArticleRow } from "./rows";
 import type { Article, SearchResult } from "./types";
-import { highlight, parseViews, relevancePct, score, withinWindow } from "./search";
+import { buildTsQuery, highlight, normalize } from "./search";
 
 export type SortKey = "relevancia" | "acessados" | "recentes";
 
+const DEPT_OPTIONS = ["TI", "RH", "Financeiro", "Operações", "Segurança"];
+
 const FILTER_GROUPS = [
   { key: "cat", label: "Categoria", options: ["Tecnologia", "Recursos Humanos", "Sistemas", "Financeiro", "Segurança"] },
-  { key: "dept", label: "Departamento", options: ["TI", "RH", "Financeiro", "Operações", "Segurança"] },
+  { key: "dept", label: "Departamento", options: DEPT_OPTIONS },
   { key: "type", label: "Tipo de conteúdo", options: ["Tutorial", "Procedimento", "Política", "Solução de problema"] },
   {
     key: "date",
@@ -15,29 +18,44 @@ const FILTER_GROUPS = [
   },
 ];
 
-function matchesGroup(a: Article, group: string, value: string): boolean {
-  if (group === "cat") return a.cat === value;
-  if (group === "type") return a.type === value;
-  if (group === "dept") return a.dept.startsWith(value);
-  return true;
-}
-
-export function countFor(group: string, value: string): number {
-  return articles.filter((a) => a.status === "publicado" && matchesGroup(a, group, value)).length;
-}
-
 export function filterGroupsMeta() {
   return FILTER_GROUPS;
 }
 
-export function rankedArticles(
+const DATE_WINDOWS: Record<string, string> = {
+  "30d": "a.updated_at >= current_date - interval '30 days'",
+  "3m": "a.updated_at >= current_date - interval '3 months'",
+  ano: "date_trunc('year', a.updated_at) = date_trunc('year', current_date)",
+};
+
+type ScoredRow = ArticleRow & { rank: number; sim: number };
+
+/**
+ * Busca com ranking por peso de campo (ts_rank_cd sobre a coluna `search`) e
+ * tolerância a erro de digitação por trigrama (word_similarity). Filtros e
+ * ordenação entram na mesma consulta.
+ */
+export async function searchArticles(
   q: string,
   sort: SortKey,
-  activeFilters: string[],
-  today: Date = new Date()
-): Article[] {
-  let list = articles.filter((a) => a.status === "publicado").map((a) => ({ a, s: score(a, q) }));
-  if (q.trim()) list = list.filter((x) => x.s > 1);
+  activeFilters: string[]
+): Promise<{ article: Article; score: number }[]> {
+  const tsq = buildTsQuery(q);
+  const raw = normalize(q);
+
+  // Os parâmetros entram só quando são usados: o Postgres recusa a query se
+  // sobrar placeholder sem referência (busca vazia não tem tsquery).
+  const params: unknown[] = [];
+  let tsqRef = "";
+  let rawRef = "";
+  if (tsq) {
+    params.push(tsq);
+    tsqRef = `$${params.length}`;
+    params.push(raw);
+    rawRef = `$${params.length}`;
+  }
+
+  const where: string[] = ["a.status = 'publicado'"];
 
   const byGroup: Record<string, string[]> = {};
   activeFilters.forEach((key) => {
@@ -45,26 +63,93 @@ export function rankedArticles(
     if (!g || v === undefined) return;
     (byGroup[g] = byGroup[g] || []).push(v);
   });
-  Object.entries(byGroup).forEach(([g, values]) => {
-    if (g === "date") {
-      list = list.filter((x) => values.some((v) => withinWindow(x.a.updatedISO, v as "30d" | "3m" | "ano", today)));
-    } else {
-      list = list.filter((x) => values.some((v) => matchesGroup(x.a, g, v)));
+
+  for (const [group, values] of Object.entries(byGroup)) {
+    if (group === "cat" || group === "type") {
+      params.push(values);
+      where.push(`a.${group} = ANY($${params.length}::text[])`);
+    } else if (group === "dept") {
+      params.push(values);
+      where.push(`EXISTS (SELECT 1 FROM unnest($${params.length}::text[]) d WHERE a.dept LIKE d || '%')`);
+    } else if (group === "date") {
+      const clauses = values.map((v) => DATE_WINDOWS[v]).filter(Boolean);
+      if (clauses.length) where.push(`(${clauses.join(" OR ")})`);
     }
-  });
+  }
 
-  list.sort((x, y) => {
-    if (sort === "acessados") return parseViews(y.a.views) - parseViews(x.a.views);
-    if (sort === "recentes") return new Date(y.a.updatedISO).getTime() - new Date(x.a.updatedISO).getTime();
-    return y.s - x.s;
-  });
+  const order =
+    sort === "acessados"
+      ? "a.views DESC"
+      : sort === "recentes"
+        ? "a.updated_at DESC"
+        : tsq
+          ? "score DESC, a.views DESC"
+          : "a.views DESC";
 
-  return list.map((x) => x.a);
+  // Full-text e trigrama entram como CTEs separadas de propósito: com as duas
+  // condições num único OR o planner abandona os índices GIN e varre a tabela
+  // inteira (medido: 221 ms contra ~3 ms em 20 mil linhas).
+  const sql = tsq
+    ? `WITH ft AS (
+         SELECT id, ts_rank_cd(search, to_tsquery('portuguese', ${tsqRef})) * 3 AS score
+           FROM articles
+          WHERE status = 'publicado' AND search @@ to_tsquery('portuguese', ${tsqRef})
+       ), tg AS (
+         SELECT id, word_similarity(${rawRef}, searchable) AS score
+           FROM articles
+          WHERE status = 'publicado' AND ${rawRef} <% searchable
+       ), hits AS (
+         SELECT id, max(score) AS score
+           FROM (SELECT * FROM ft UNION ALL SELECT * FROM tg) u
+          GROUP BY id
+       )
+       SELECT a.*, h.score
+         FROM articles a
+         JOIN hits h ON h.id = a.id
+        WHERE ${where.join(" AND ")}
+        ORDER BY ${order}`
+    : `SELECT a.*, 0 AS score
+         FROM articles a
+        WHERE ${where.join(" AND ")}
+        ORDER BY ${order}`;
+
+  const rows = await query<ScoredRow & { score: number }>(sql, params);
+  return rows.map((r) => ({ article: rowToArticle(r), score: Number(r.score) || 0 }));
 }
 
-export function toSearchResult(a: Article, q: string, favs: Record<string, boolean>): SearchResult {
+/** Contadores exibidos ao lado de cada filtro, sobre todo o acervo publicado. */
+export async function filterCounts(): Promise<Record<string, Record<string, number>>> {
+  const rows = await query<{ g: string; v: string; n: number }>(
+    `SELECT 'cat' AS g, cat AS v, count(*)::int AS n FROM articles WHERE status = 'publicado' GROUP BY cat
+     UNION ALL
+     SELECT 'type', type, count(*)::int FROM articles WHERE status = 'publicado' GROUP BY type
+     UNION ALL
+     SELECT 'dept', d.value, count(*)::int
+       FROM articles a
+       JOIN (SELECT unnest($1::text[]) AS value) d ON a.dept LIKE d.value || '%'
+      WHERE a.status = 'publicado'
+      GROUP BY d.value`,
+    [DEPT_OPTIONS]
+  );
+
+  const out: Record<string, Record<string, number>> = { cat: {}, type: {}, dept: {} };
+  rows.forEach((r) => {
+    out[r.g] = out[r.g] || {};
+    out[r.g][r.v] = r.n;
+  });
+  return out;
+}
+
+export function toSearchResult(
+  a: Article,
+  q: string,
+  favs: Set<string>,
+  score: number,
+  topScore: number
+): SearchResult {
   const h = highlight(a.title, q);
   const s = highlight(a.snippet.replace(/<[^>]+>/g, ""), q);
+  const relPct = topScore > 0 ? Math.max(12, Math.round((score / topScore) * 100)) : 100;
   return {
     id: a.id,
     ...h,
@@ -80,7 +165,7 @@ export function toSearchResult(a: Article, q: string, favs: Record<string, boole
     kw: a.kw.slice(0, 3).join(", "),
     verified: a.verified,
     outdated: !!a.outdated,
-    fav: !!favs[a.id],
-    relPct: relevancePct(a, q),
+    fav: favs.has(a.id),
+    relPct,
   };
 }

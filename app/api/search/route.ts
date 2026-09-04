@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { countFor, filterGroupsMeta, rankedArticles, toSearchResult, type SortKey } from "@/lib/results";
-import { getFavorites, addSearch } from "@/lib/store";
+import { filterCounts, filterGroupsMeta, searchArticles, toSearchResult, type SortKey } from "@/lib/results";
+import { getFavoriteIds, addSearch } from "@/lib/store";
 import { getSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
@@ -12,9 +12,14 @@ export async function GET(req: NextRequest) {
   const sort = (searchParams.get("sort") as SortKey) || "relevancia";
   const filters = searchParams.getAll("filter");
 
-  const favs = getFavorites(session.id);
-  const ranked = rankedArticles(q, sort, filters);
-  const results = ranked.map((a) => toSearchResult(a, q, favs));
+  const [favs, found, counts] = await Promise.all([
+    getFavoriteIds(session.id),
+    searchArticles(q, sort, filters),
+    filterCounts(),
+  ]);
+
+  const topScore = found.reduce((max, r) => Math.max(max, r.score), 0);
+  const results = found.map(({ article, score }) => toSearchResult(article, q, favs, score, topScore));
 
   const groups = filterGroupsMeta().map((g) => ({
     key: g.key,
@@ -24,7 +29,7 @@ export async function GET(req: NextRequest) {
       return {
         label,
         value,
-        count: g.key === "date" ? null : countFor(g.key, value),
+        count: g.key === "date" ? null : (counts[g.key]?.[value] ?? 0),
         on: filters.includes(`${g.key}|${value}`),
       };
     }),
@@ -45,6 +50,6 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  if (typeof body.q === "string" && body.q.trim()) addSearch(session.id, body.q);
+  if (typeof body.q === "string" && body.q.trim()) await addSearch(session.id, body.q);
   return NextResponse.json({ ok: true });
 }

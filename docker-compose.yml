@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: portal-postgres
+    environment:
+      POSTGRES_DB: portal
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portal}
+    ports:
+      - "5433:5432"   # publicado para o "npm run dev" na máquina
+    volumes:
+      - portal-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   portal:
     build: .
     image: portal-do-conhecimento
@@ -6,11 +24,13 @@ services:
     environment:
       AUTH_SECRET: ${AUTH_SECRET:?defina AUTH_SECRET no .env}
       SEED_PASSWORD: ${SEED_PASSWORD:-portal2026}
+      DATABASE_URL: postgres://portal:${POSTGRES_PASSWORD:-portal}@postgres:5432/portal
     ports:
       - "3200:3000"
-    volumes:
-      - portal-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  portal-data:
+  portal-pgdata:

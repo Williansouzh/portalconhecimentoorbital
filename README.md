@@ -8,6 +8,7 @@ design entregue pelo Claude Design (handoff `Portal do Conhecimento.dc.html`).
 
 - **Next.js 16** (App Router) + TypeScript
 - **Backend no próprio Next.js**: route handlers em `app/api/*`
+- **PostgreSQL 17** com `pg` — sem ORM, SQL direto
 - CSS puro com design tokens (claro/escuro) em `app/globals.css`
 - Fontes Archivo (títulos) e Figtree (texto) via `next/font`
 
@@ -15,21 +16,25 @@ design entregue pelo Claude Design (handoff `Portal do Conhecimento.dc.html`).
 
 ```bash
 npm install
-cp .env.example .env    # gere um AUTH_SECRET (instruções no arquivo)
-npm run dev             # http://localhost:3000
+cp .env.example .env             # gere um AUTH_SECRET (instruções no arquivo)
+docker compose up -d postgres    # banco em localhost:5433
+npm run dev                      # http://localhost:3000
 ```
+
+O schema e os dados iniciais são criados sozinhos no primeiro acesso — o boot
+roda o DDL (idempotente) e semeia usuários e artigos se o banco estiver vazio.
 
 ### Docker
 
 ```bash
-docker compose up -d      # http://localhost:3200
+docker compose up -d      # app em http://localhost:3200, Postgres em 5433
 docker compose logs -f
-docker compose down       # para os containers e mantém o volume
+docker compose down       # para os containers e mantém o volume do banco
 ```
 
-A imagem é multi-stage e roda o build `standalone` do Next como usuário
-não-root. O volume `portal-data` guarda `/app/data`, onde fica o estado do
-store (favoritos, histórico, pesquisas), então ele sobrevive a restarts.
+São dois serviços: o app (imagem multi-stage rodando o build `standalone` do
+Next como usuário não-root) e o Postgres, cujos dados ficam no volume
+`portal-pgdata`. O app só sobe depois que o healthcheck do banco passa.
 
 ## Autenticação
 
@@ -91,19 +96,33 @@ ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 
 ### Busca
 
-`lib/search.ts` implementa o comportamento definido no design: ignora acento e
-caixa, aceita prefixos, tolera um caractere errado (Levenshtein limitado) e
-expande sinônimos — "ticket" encontra "chamado", "password" encontra "senha".
+Feita no banco, com o comportamento que o design pede: ignora acento
+(`unaccent`), aceita prefixo (`senh` já encontra), tolera erro de digitação
+(`pg_trgm`, `word_similarity`) e expande sinônimos — "ticket" encontra
+"chamado", "password" encontra "senha". O ranking usa `ts_rank_cd` sobre uma
+coluna `tsvector` gerada com peso por campo: título (A) pesa mais que
+palavra-chave (B), que pesa mais que categoria/área (C) e resumo (D).
+`lib/search.ts` cuida só do que é apresentação: normalizar, montar o `tsquery`
+e destacar o trecho.
+
+Dois detalhes valem registro, porque não são óbvios:
+
+- As duas condições (full-text e trigrama) entram como CTEs separadas. Num
+  único `OR`, o planner abandona os índices GIN e varre a tabela: medido em 20
+  mil linhas, 221 ms contra 3,4 ms.
+- Os índices GIN são **parciais** (`WHERE status = 'publicado'`). Como o
+  status casa com quase toda a tabela, o índice completo era descartado.
 
 ### Persistência
 
-`lib/store.ts` mantém usuários, favoritos, histórico, pesquisas e rascunhos em memória com
-escrita em `data/state.json` (ignorado pelo git), sobrevivendo a reinícios do
-servidor. É o ponto de troca para um banco real: a mesma interface passa a
-consultar o banco sem mudar as rotas.
+Cinco tabelas: `users`, `articles`, `favorites`, `history` e `recent_searches`.
+Favoritos e histórico são tabelas de ligação com chave estrangeira e
+`ON DELETE CASCADE`; o corpo do artigo (passos, requisitos, FAQ) fica em
+`jsonb`. O DDL vive em `lib/schema.ts` e roda a cada boot, sempre idempotente.
 
 ## Conteúdo
 
-Os 10 artigos de exemplo ficam em `lib/data.ts`. Só o artigo `senha` tem corpo
-completo escrito (passo a passo, requisitos, FAQ) — os demais mostram apenas o
-resumo até que as equipes responsáveis escrevam o conteúdo.
+Os 10 artigos de exemplo ficam em `lib/data.ts`, que hoje serve como fonte do
+seed inicial do banco. Só o artigo `senha` tem corpo completo escrito (passo a
+passo, requisitos, FAQ) — os demais mostram apenas o resumo até que as equipes
+responsáveis escrevam o conteúdo.

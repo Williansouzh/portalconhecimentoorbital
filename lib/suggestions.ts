@@ -1,22 +1,22 @@
-import { articles, faqs, keywords, systems } from "./data";
+import { faqs, keywords, systems } from "./data";
 import type { SuggestionGroup } from "./types";
-import { normalize, score } from "./search";
+import { normalize } from "./search";
+import { searchArticles } from "./results";
+import { query } from "./db";
 
-export function buildSuggestionGroups(q: string): SuggestionGroup[] {
+export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[]> {
   if (!q.trim()) return [];
   const groups: SuggestionGroup[] = [];
+  const term = normalize(q);
+  const firstTerm = term.split(/\s+/)[0] ?? "";
 
-  const scored = articles
-    .map((a) => ({ a, s: score(a, q) }))
-    .filter((x) => x.s > 1)
-    .sort((x, y) => y.s - x.s)
-    .slice(0, 4);
-  if (scored.length) {
+  const found = (await searchArticles(q, "relevancia", [])).slice(0, 4);
+  if (found.length) {
     groups.push({
       label: "Conteúdos",
       kind: "Conteúdo",
       glyph: "▤",
-      items: scored.map(({ a }) => ({
+      items: found.map(({ article: a }) => ({
         id: `article:${a.id}`,
         text: a.title,
         meta: `${a.cat} · ${a.read} · ${a.verified ? "verificado" : "em revisão"}`,
@@ -27,7 +27,6 @@ export function buildSuggestionGroups(q: string): SuggestionGroup[] {
     });
   }
 
-  const firstTerm = normalize(q).split(/\s+/)[0] ?? "";
   const kw = keywords.filter((k) => normalize(k).includes(firstTerm)).slice(0, 3);
   if (kw.length) {
     groups.push({
@@ -45,18 +44,22 @@ export function buildSuggestionGroups(q: string): SuggestionGroup[] {
     });
   }
 
-  const cats = Array.from(new Set(articles.map((a) => a.cat)))
-    .filter((c) => articles.some((a) => a.cat === c && score(a, q) > 1))
-    .slice(0, 2);
-  if (cats.length) {
+  // Categorias que têm algum conteúdo entre os resultados da busca.
+  const catsFound = [...new Set(found.map((f) => f.article.cat))].slice(0, 2);
+  if (catsFound.length) {
+    const counts = await query<{ cat: string; n: number }>(
+      "SELECT cat, count(*)::int AS n FROM articles WHERE status = 'publicado' AND cat = ANY($1::text[]) GROUP BY cat",
+      [catsFound]
+    );
+    const byCat = new Map(counts.map((c) => [c.cat, c.n]));
     groups.push({
       label: "Categorias",
       kind: "Categoria",
       glyph: "◧",
-      items: cats.map((c) => ({
+      items: catsFound.map((c) => ({
         id: `cat:${c}`,
         text: c,
-        meta: `${articles.filter((a) => a.cat === c).length} conteúdos nesta categoria`,
+        meta: `${byCat.get(c) ?? 0} conteúdos nesta categoria`,
         href: `/resultados?q=${encodeURIComponent(c)}`,
         kind: "Categoria",
         glyph: "◧",
@@ -65,11 +68,7 @@ export function buildSuggestionGroups(q: string): SuggestionGroup[] {
   }
 
   const sys = systems
-    .filter(
-      (s) =>
-        articles.some((a) => normalize(a.title + a.kw.join(" ")).includes(normalize(s.n))) ||
-        normalize(s.n).includes(normalize(q))
-    )
+    .filter((s) => normalize(s.n).includes(term) || found.some((f) => normalize(f.article.title).includes(normalize(s.n))))
     .slice(0, 2);
   if (sys.length) {
     groups.push({
@@ -87,9 +86,7 @@ export function buildSuggestionGroups(q: string): SuggestionGroup[] {
     });
   }
 
-  const fq = faqs
-    .filter((f) => score({ title: f, kw: [], cat: "", dept: "", snippet: f, rel: 0 }, q) > 1)
-    .slice(0, 2);
+  const fq = faqs.filter((f) => normalize(f).includes(firstTerm)).slice(0, 2);
   if (fq.length) {
     groups.push({
       label: "Perguntas frequentes",
