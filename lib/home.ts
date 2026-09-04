@@ -8,8 +8,8 @@ const CONTINUE_READING: { id: string; pct: number; section: string }[] = [
 
 const RECENT_IDS = ["2fa", "chamados", "senha", "novo"];
 
-export function getHomeData() {
-  const favs = getFavorites();
+export function getHomeData(userId: string) {
+  const favs = getFavorites(userId);
   const published = articles.filter((a) => a.status === "publicado");
 
   const topSearched = [...published]

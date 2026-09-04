@@ -3,6 +3,9 @@ services:
     build: .
     image: portal-do-conhecimento
     container_name: portal-do-conhecimento
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?defina AUTH_SECRET no .env}
+      SEED_PASSWORD: ${SEED_PASSWORD:-portal2026}
     ports:
       - "3200:3000"
     volumes:

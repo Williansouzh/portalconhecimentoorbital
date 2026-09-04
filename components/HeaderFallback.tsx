@@ -1,10 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BellIcon, MoonIcon } from "./Icons";
+import type { SessionUser } from "@/lib/auth";
 
-// Static, non-interactive mirror of <Header/> rendered while the client
-// component streams in — avoids a blank header before hydration.
-export default function HeaderFallback() {
+// Espelho estático e não interativo do <Header/> enquanto o componente
+// cliente é hidratado — evita um cabeçalho em branco no primeiro paint.
+export default function HeaderFallback({ user }: { user: SessionUser }) {
+  const initials = user.shortName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <header className="hdr">
       <div className="hdr-inner">
@@ -46,11 +54,11 @@ export default function HeaderFallback() {
           </span>
           <span className="profile-btn">
             <span className="profile-avatar" aria-hidden="true">
-              AC
+              {initials}
             </span>
             <span className="profile-who">
-              Ana C.
-              <small>Operações</small>
+              {user.shortName}
+              <small>{user.dept}</small>
             </span>
           </span>
         </div>

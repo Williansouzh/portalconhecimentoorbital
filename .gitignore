@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local persisted backend state
 /data/state.json
+
+# o exemplo de configuração é versionado; os .env reais não
+!.env.example

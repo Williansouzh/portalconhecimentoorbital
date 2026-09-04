@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getHomeData } from "@/lib/home";
+import { requireSession } from "@/lib/session";
 import SearchBox from "@/components/SearchBox";
 import HelpButton from "@/components/HelpButton";
 import { CategoryGlyphIcon } from "@/components/Icons";
 
-export default function HomePage() {
-  const { topSearched, recent, continueReading, favList, homeCategories, popular } = getHomeData();
+export default async function HomePage() {
+  const session = await requireSession();
+  const { topSearched, recent, continueReading, favList, homeCategories, popular } = getHomeData(session.id);
 
   return (
     <main className="main-loose">

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { articleBodies, articles, findArticle } from "@/lib/data";
 import { getFavorites, pushHistory } from "@/lib/store";
+import { requireSession } from "@/lib/session";
 import ArticleView from "@/components/ArticleView";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -11,12 +12,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSession();
   const { id } = await params;
   const article = findArticle(id);
   if (!article) notFound();
 
-  pushHistory(article.id);
-  const favs = getFavorites();
+  pushHistory(session.id, article.id);
+  const favs = getFavorites(session.id);
   const related = articles
     .filter((a) => a.id !== article.id)
     .slice(0, 3)

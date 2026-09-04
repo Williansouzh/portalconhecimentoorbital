@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { articleBodies, articles, findArticle } from "@/lib/data";
 import { getFavorites } from "@/lib/store";
+import { getSession } from "@/lib/session";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const article = findArticle(id);
   if (!article) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const favs = getFavorites();
+  const favs = getFavorites(session.id);
   const related = articles
     .filter((a) => a.id !== article.id)
     .slice(0, 3)

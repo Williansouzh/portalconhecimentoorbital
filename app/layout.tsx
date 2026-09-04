@@ -5,6 +5,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import HeaderFallback from "@/components/HeaderFallback";
 import UIProvider from "@/components/UIProvider";
+import { getSession } from "@/lib/session";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -31,7 +32,10 @@ try {
 } catch (e) {}
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Sem sessão significa tela de login: ali o cabeçalho não aparece.
+  const session = await getSession();
+
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${figtree.variable}`}>
       <head>
@@ -39,9 +43,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <UIProvider>
-          <Suspense fallback={<HeaderFallback />}>
-            <Header />
-          </Suspense>
+          {session && (
+            <Suspense fallback={<HeaderFallback user={session} />}>
+              <Header user={session} />
+            </Suspense>
+          )}
           {children}
         </UIProvider>
       </body>

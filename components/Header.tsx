@@ -1,23 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import SearchBox from "./SearchBox";
 import { BellIcon, MoonIcon, SunIcon } from "./Icons";
 import { focusSearchInput } from "@/lib/searchFocus";
+import { canCurate, type SessionUser } from "@/lib/auth";
 
-export default function Header() {
+const ROLE_LABEL: Record<string, string> = {
+  leitor: "Leitor",
+  autor: "Autor",
+  curador: "Curador",
+};
+
+export default function Header({ user }: { user: SessionUser }) {
   const pathname = usePathname();
-  // The blocking inline script in <head> already stamps data-theme onto
-  // <html> from localStorage before hydration, so reading it back here
-  // (instead of localStorage directly) keeps the icon in sync without a
-  // setState-after-mount round trip.
+  const router = useRouter();
+  // O script inline no <head> já grava data-theme no <html> a partir do
+  // localStorage antes da hidratação, então ler dali mantém o ícone em
+  // sincronia sem um setState depois da montagem.
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof document === "undefined") return "light";
     return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
   });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onKeydown = (e: KeyboardEvent) => {
@@ -25,9 +34,17 @@ export default function Header() {
         e.preventDefault();
         focusSearchInput();
       }
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     window.addEventListener("keydown", onKeydown);
-    return () => window.removeEventListener("keydown", onKeydown);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("mousedown", onClick);
+    };
   }, []);
 
   function toggleTheme() {
@@ -39,9 +56,22 @@ export default function Header() {
     } catch {}
   }
 
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    router.replace("/login");
+    router.refresh();
+  }
+
   const isHome = pathname === "/";
   const isCategories = pathname.startsWith("/categorias");
   const isFavoritesArea = pathname.startsWith("/favoritos");
+  const isAdmin = pathname.startsWith("/admin");
+  const initials = user.shortName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <header className="hdr">
@@ -70,6 +100,11 @@ export default function Header() {
           <Link href="/favoritos?tab=recentes" className="hdr-nav-btn">
             Histórico
           </Link>
+          {canCurate(user.role) && (
+            <Link href="/admin" className={`hdr-nav-btn${isAdmin ? " on" : ""}`}>
+              Gestão
+            </Link>
+          )}
         </nav>
 
         <div className="hdr-search-slot">{!isHome && <SearchBox variant="compact" />}</div>
@@ -82,15 +117,38 @@ export default function Header() {
             <BellIcon />
             <span className="notif-dot">3</span>
           </button>
-          <button aria-label="Perfil de Ana Coutinho" className="profile-btn">
-            <span className="profile-avatar" aria-hidden="true">
-              AC
-            </span>
-            <span className="profile-who">
-              Ana C.
-              <small>Operações</small>
-            </span>
-          </button>
+
+          <div ref={menuRef} style={{ position: "relative" }}>
+            <button
+              aria-label={`Perfil de ${user.name}`}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              className="profile-btn"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <span className="profile-avatar" aria-hidden="true">
+                {initials}
+              </span>
+              <span className="profile-who">
+                {user.shortName}
+                <small>{user.dept}</small>
+              </span>
+            </button>
+
+            {menuOpen && (
+              <div role="menu" className="profile-menu">
+                <div className="profile-menu-head">
+                  <span style={{ display: "block", font: "600 14px/1.3 var(--font-body)" }}>{user.name}</span>
+                  <span style={{ display: "block", marginTop: 3, font: "400 12.5px/1.4 var(--font-body)", color: "var(--text3)" }}>
+                    {user.dept} · {ROLE_LABEL[user.role] ?? user.role}
+                  </span>
+                </div>
+                <button role="menuitem" className="profile-menu-item" onClick={logout}>
+                  Sair
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

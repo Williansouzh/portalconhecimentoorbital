@@ -15,8 +15,8 @@ design entregue pelo Claude Design (handoff `Portal do Conhecimento.dc.html`).
 
 ```bash
 npm install
-npm run dev     # http://localhost:3000
-npm run build && npm start
+cp .env.example .env    # gere um AUTH_SECRET (instruções no arquivo)
+npm run dev             # http://localhost:3000
 ```
 
 ### Docker
@@ -30,6 +30,35 @@ docker compose down       # para os containers e mantém o volume
 A imagem é multi-stage e roda o build `standalone` do Next como usuário
 não-root. O volume `portal-data` guarda `/app/data`, onde fica o estado do
 store (favoritos, histórico, pesquisas), então ele sobrevive a restarts.
+
+## Autenticação
+
+Sessão por **JWT (HS256) em cookie httpOnly**, assinado com `AUTH_SECRET` —
+obrigatório em produção, com fallback só de desenvolvimento. O `middleware.ts`
+barra tudo que não seja `/login` e `/api/auth/login`: página sem sessão
+redireciona para o login (preservando o destino em `?next=`), rota de API sem
+sessão responde 401.
+
+Três papéis: **leitor**, **autor** e **curador**. Autor e curador enxergam o
+item "Gestão" no menu e acessam `/admin` e `/admin/editor`; para os demais o
+middleware redireciona, e `POST /api/articles` responde 403.
+
+Favoritos, histórico e pesquisas recentes são **por usuário** — cada sessão lê e
+escreve apenas o seu subconjunto do store.
+
+### Usuários de demonstração
+
+Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
+
+| E-mail | Papel | Área |
+| --- | --- | --- |
+| ana.coutinho@riocard.com.br | leitor | Operações |
+| bruno.lima@riocard.com.br | autor | RH · Pessoas |
+| carla.menezes@riocard.com.br | curador | TI · Suporte |
+
+São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
+ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
+`app/api/auth/login`.
 
 ## Telas
 
@@ -58,6 +87,7 @@ store (favoritos, histórico, pesquisas), então ele sobrevive a restarts.
 | `GET/POST/DELETE /api/searches` | Pesquisas recentes |
 | `POST /api/feedback` | Avaliação do artigo e aviso de conteúdo desatualizado |
 | `GET /api/home`, `GET /api/categories` | Dados agregados da home e categorias |
+| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | Sessão |
 
 ### Busca
 
@@ -67,7 +97,7 @@ expande sinônimos — "ticket" encontra "chamado", "password" encontra "senha".
 
 ### Persistência
 
-`lib/store.ts` mantém favoritos, histórico, pesquisas e rascunhos em memória com
+`lib/store.ts` mantém usuários, favoritos, histórico, pesquisas e rascunhos em memória com
 escrita em `data/state.json` (ignorado pelo git), sobrevivendo a reinícios do
 servidor. É o ponto de troca para um banco real: a mesma interface passa a
 consultar o banco sem mudar as rotas.

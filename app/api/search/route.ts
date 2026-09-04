@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { countFor, filterGroupsMeta, rankedArticles, toSearchResult, type SortKey } from "@/lib/results";
 import { getFavorites, addSearch } from "@/lib/store";
+import { getSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") ?? "";
   const sort = (searchParams.get("sort") as SortKey) || "relevancia";
   const filters = searchParams.getAll("filter");
 
-  const favs = getFavorites();
+  const favs = getFavorites(session.id);
   const ranked = rankedArticles(q, sort, filters);
   const results = ranked.map((a) => toSearchResult(a, q, favs));
 
@@ -38,7 +42,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  if (typeof body.q === "string" && body.q.trim()) addSearch(body.q);
+  if (typeof body.q === "string" && body.q.trim()) addSearch(session.id, body.q);
   return NextResponse.json({ ok: true });
 }

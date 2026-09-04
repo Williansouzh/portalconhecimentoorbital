@@ -980,3 +980,38 @@ table.table td {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
+
+/* menu do perfil */
+.profile-menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--sh3);
+  z-index: 60;
+  animation: fup 0.14s ease-out;
+}
+.profile-menu-head {
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  text-align: left;
+}
+.profile-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  font: 500 14px/1 var(--font-body);
+  color: var(--text);
+}
+.profile-menu-item:hover {
+  background: var(--surface2);
+}
