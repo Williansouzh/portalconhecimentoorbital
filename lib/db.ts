@@ -40,7 +40,7 @@ async function raw<T extends QueryResultRow = QueryResultRow>(text: string, para
   return res.rows;
 }
 
-const SEED_PASSWORD = process.env.SEED_PASSWORD || "portal2026";
+const SEED_PASSWORD = process.env.SEED_PASSWORD || "Portal2026";
 
 const SEED_USERS: { id: string; name: string; shortName: string; email: string; dept: string; role: Role }[] = [
   { id: "ana", name: "Ana Coutinho", shortName: "Ana C.", email: "ana.coutinho@riocard.com.br", dept: "Atendimento", role: "leitor" },

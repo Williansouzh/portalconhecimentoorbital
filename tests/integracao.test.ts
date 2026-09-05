@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ready, query } from "@/lib/db";
+import { createSessionToken, readSessionToken } from "@/lib/auth";
+import { revogarSessoesDoUsuario, revogarToken, tokenRevogado } from "@/lib/sessions";
 import { searchArticles, sugestaoDeCorrecao } from "@/lib/results";
 import {
   authenticate,
@@ -95,9 +97,9 @@ describe.skipIf(!temBanco)("fluxo editorial e permissões", () => {
   });
 
   it("autentica com a senha correta e recusa a errada", async () => {
-    expect(await authenticate("ana.coutinho@riocard.com.br", "portal2026")).not.toBeNull();
+    expect(await authenticate("ana.coutinho@riocard.com.br", "Portal2026")).not.toBeNull();
     expect(await authenticate("ana.coutinho@riocard.com.br", "errada")).toBeNull();
-    expect(await authenticate("ninguem@riocard.com.br", "portal2026")).toBeNull();
+    expect(await authenticate("ninguem@riocard.com.br", "Portal2026")).toBeNull();
   });
 
   it("rascunho fica fora da busca até ser publicado", async () => {
@@ -142,5 +144,36 @@ describe.skipIf(!temBanco)("estado por usuário", () => {
     expect([...(await getFavoriteIds("bruno"))]).not.toContain("rg-01");
     await toggleFavorite("ana", "rg-01");
     expect([...(await getFavoriteIds("ana"))]).not.toContain("rg-01");
+  });
+});
+
+describe.skipIf(!temBanco)("revogação de sessão", () => {
+  beforeAll(async () => {
+    await ready();
+  });
+
+  it("logout invalida aquele token e só ele", async () => {
+    const usuario = { id: "ana", name: "Ana", shortName: "Ana C.", dept: "Atendimento", role: "leitor" as const };
+    const tokenA = await readSessionToken(await createSessionToken(usuario));
+    const tokenB = await readSessionToken(await createSessionToken(usuario));
+
+    await revogarToken(tokenA!.jti, "ana", tokenA!.exp);
+
+    expect(await tokenRevogado(tokenA!.jti, "ana", tokenA!.iat)).toBe(true);
+    expect(await tokenRevogado(tokenB!.jti, "ana", tokenB!.iat)).toBe(false);
+  });
+
+  it("troca de senha derruba sessões anteriores mas não o login seguinte", async () => {
+    const usuario = { id: "bruno", name: "Bruno", shortName: "Bruno L.", dept: "Atendimento", role: "autor" as const };
+    const anterior = await readSessionToken(await createSessionToken(usuario));
+
+    await new Promise((r) => setTimeout(r, 1100)); // iat tem resolução de segundo
+    await revogarSessoesDoUsuario("bruno");
+    await new Promise((r) => setTimeout(r, 1100));
+
+    const posterior = await readSessionToken(await createSessionToken(usuario));
+
+    expect(await tokenRevogado(anterior!.jti, "bruno", anterior!.iat)).toBe(true);
+    expect(await tokenRevogado(posterior!.jti, "bruno", posterior!.iat)).toBe(false);
   });
 });

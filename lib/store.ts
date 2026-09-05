@@ -5,6 +5,7 @@ import type { Article, ArticleStatus } from "./types";
 import { rowToArticle, type ArticleRow } from "./rows";
 
 export { hashPassword, verifyPassword } from "./passwords";
+import { hashPassword } from "./passwords";
 
 export type UserRecord = {
   id: string;
@@ -54,6 +55,10 @@ export async function authenticate(email: string, password: string): Promise<Use
   const user = await findUserByEmail(email);
   if (!user || !verifyPassword(password, user.passwordHash)) return null;
   return user;
+}
+
+export async function trocarSenha(userId: string, novaSenha: string): Promise<void> {
+  await query("UPDATE users SET password_hash = $2 WHERE id = $1", [userId, hashPassword(novaSenha)]);
 }
 
 // ---------- favoritos ----------

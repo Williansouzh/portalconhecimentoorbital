@@ -151,6 +151,9 @@ export default function Header({ user, novidades }: { user: SessionUser; novidad
                     {user.dept} · {ROLE_LABEL[user.role] ?? user.role}
                   </span>
                 </div>
+                <Link role="menuitem" className="profile-menu-item" href="/conta" onClick={() => setMenuOpen(false)}>
+                  Sua conta
+                </Link>
                 <button role="menuitem" className="profile-menu-item" onClick={logout}>
                   Sair
                 </button>

@@ -88,7 +88,7 @@ escreve apenas o seu subconjunto do store.
 
 ### Usuários de demonstração
 
-Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
+Criados no primeiro boot, com senha `Portal2026` (ou `SEED_PASSWORD`):
 
 | E-mail | Papel | Área |
 | --- | --- | --- |
@@ -96,7 +96,8 @@ Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
 | bruno.lima@riocard.com.br | autor | RH · Pessoas |
 | carla.menezes@riocard.com.br | curador | TI · Suporte |
 
-São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
+A senha atende à mesma política que o portal exige na troca: 10 caracteres,
+com maiúscula, minúscula e número. São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
 ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 `app/api/auth/login`.
 
@@ -220,7 +221,7 @@ escreve apenas o seu subconjunto do store.
 
 ### Usuários de demonstração
 
-Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
+Criados no primeiro boot, com senha `Portal2026` (ou `SEED_PASSWORD`):
 
 | E-mail | Papel | Área |
 | --- | --- | --- |
@@ -228,7 +229,8 @@ Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
 | bruno.lima@riocard.com.br | autor | RH · Pessoas |
 | carla.menezes@riocard.com.br | curador | TI · Suporte |
 
-São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
+A senha atende à mesma política que o portal exige na troca: 10 caracteres,
+com maiúscula, minúscula e número. São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
 ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 `app/api/auth/login`.
 

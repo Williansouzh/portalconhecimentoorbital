@@ -12,6 +12,13 @@ export type SessionUser = {
   shortName: string;
   dept: string;
   role: Role;
+  /** Identificador desta sessão, usado para revogá-la no logout. */
+  jti?: string;
+  /** Expiração do token, para saber até quando guardar a revogação. */
+  exp?: number;
+  /** Emissão do token: distingue sessões anteriores de posteriores a uma
+   *  revogação global (troca de senha). */
+  iat?: number;
 };
 
 /** Papéis que enxergam a área de curadoria (/admin e /admin/editor). */
@@ -32,6 +39,7 @@ function secret(): Uint8Array {
 export async function createSessionToken(user: SessionUser): Promise<string> {
   return new SignJWT({ name: user.name, shortName: user.shortName, dept: user.dept, role: user.role })
     .setProtectedHeader({ alg: "HS256" })
+    .setJti(crypto.randomUUID())
     .setSubject(user.id)
     .setIssuer(ISSUER)
     .setIssuedAt()
@@ -51,6 +59,9 @@ export async function readSessionToken(token: string | undefined): Promise<Sessi
       shortName: String(payload.shortName ?? ""),
       dept: String(payload.dept ?? ""),
       role: (payload.role as Role) ?? "leitor",
+      jti: typeof payload.jti === "string" ? payload.jti : undefined,
+      exp: typeof payload.exp === "number" ? payload.exp : undefined,
+      iat: typeof payload.iat === "number" ? payload.iat : undefined,
     };
   } catch {
     return null;
