@@ -27,14 +27,18 @@ function proximaAcao(status: ArticleStatus, role: Role): { label: string; alvo: 
   return null;
 }
 
+type Revisao = { id: number; title: string; autor: string | null; status: string | null; criadaEm: string };
+
 export default function ArticleEditor({
   article,
   role,
   termoSugerido,
+  revisoesIniciais = [],
 }: {
   article: Article | null;
   role: Role;
   termoSugerido?: string;
+  revisoesIniciais?: Revisao[];
 }) {
   const router = useRouter();
   const { showToast } = useUI();
@@ -50,9 +54,20 @@ export default function ArticleEditor({
   const [keywords, setKeywords] = useState<string[]>(article?.kw ?? (termoSugerido ? [termoSugerido] : []));
   const [kwInput, setKwInput] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [verificado, setVerificado] = useState(article?.verified ?? false);
+  const [revisoes, setRevisoes] = useState<Revisao[]>(revisoesIniciais);
 
   const acao = proximaAcao(status, role);
-  const payload = { title, summary, content, cat, dept, keywords, nextReview: nextReview || null };
+  const payload = {
+    title,
+    summary,
+    content,
+    cat,
+    dept,
+    keywords,
+    nextReview: nextReview || null,
+    ...(role === "curador" ? { verified: verificado } : {}),
+  };
 
   function addKeyword() {
     const v = kwInput.trim();
@@ -86,6 +101,7 @@ export default function ArticleEditor({
       const data = await res.json();
       const novoId: string = data.article.id;
       setId(novoId);
+      if (data.revisoes) setRevisoes(data.revisoes);
       if (!silencioso) showToast("Rascunho salvo");
       return novoId;
     } finally {
@@ -287,6 +303,49 @@ export default function ArticleEditor({
                 </p>
               )}
             </div>
+
+            {role === "curador" && id && (
+              <div className="card" style={{ padding: "18px 20px" }}>
+                <div style={{ marginBottom: 13, font: "600 12px/1 var(--font-head)", letterSpacing: ".09em", textTransform: "uppercase", color: "var(--text3)" }}>
+                  Curadoria
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, font: "400 14px/1.4 var(--font-body)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={verificado}
+                    onChange={(e) => setVerificado(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: "var(--brand)" }}
+                  />
+                  Conteúdo verificado
+                </label>
+                <p style={{ margin: "8px 0 0", font: "400 12.5px/1.5 var(--font-body)", color: "var(--text3)" }}>
+                  O selo aparece na busca e no artigo. Vale ao salvar.
+                </p>
+              </div>
+            )}
+
+            {revisoes.length > 0 && (
+              <div className="card" style={{ padding: "18px 20px" }}>
+                <div style={{ marginBottom: 13, font: "600 12px/1 var(--font-head)", letterSpacing: ".09em", textTransform: "uppercase", color: "var(--text3)" }}>
+                  Versões anteriores
+                </div>
+                <div style={{ display: "grid", gap: 10, font: "400 13px/1.45 var(--font-body)", color: "var(--text2)" }}>
+                  {revisoes.slice(0, 5).map((r) => (
+                    <span key={r.id} style={{ display: "flex", gap: 9 }}>
+                      <b style={{ color: "var(--text)", flex: "none" }}>
+                        {new Date(r.criadaEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </b>
+                      <span style={{ minWidth: 0 }}>
+                        {r.autor ?? "—"}
+                        <span style={{ display: "block", color: "var(--text3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.title}
+                        </span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="card" style={{ padding: "18px 20px" }}>
               <div style={{ marginBottom: 13, font: "600 12px/1 var(--font-head)", letterSpacing: ".09em", textTransform: "uppercase", color: "var(--text3)" }}>

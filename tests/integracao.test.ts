@@ -7,8 +7,10 @@ import {
   authenticate,
   createArticle,
   getFavoriteIds,
+  listarRevisoes,
   setArticleStatus,
   toggleFavorite,
+  updateArticle,
 } from "@/lib/store";
 
 const temBanco = !!process.env.DB_DISPONIVEL;
@@ -175,5 +177,35 @@ describe.skipIf(!temBanco)("revogação de sessão", () => {
 
     expect(await tokenRevogado(anterior!.jti, "bruno", anterior!.iat)).toBe(true);
     expect(await tokenRevogado(posterior!.jti, "bruno", posterior!.iat)).toBe(false);
+  });
+});
+
+describe.skipIf(!temBanco)("histórico de versões", () => {
+  beforeAll(async () => {
+    await ready();
+  });
+
+  it("guarda a versão anterior a cada edição", async () => {
+    const artigo = await createArticle({ title: "Assunto versionado", summary: "v1", authorId: "carla" });
+
+    expect(await listarRevisoes(artigo.id)).toHaveLength(0);
+
+    await updateArticle(
+      artigo.id,
+      { title: "Assunto versionado", summary: "v2", content: "", cat: "Recargas", dept: "Atendimento", keywords: [], nextReview: null },
+      "carla"
+    );
+    const apos1 = await listarRevisoes(artigo.id);
+    expect(apos1).toHaveLength(1);
+    expect(apos1[0].autor).toBe("Carla M.");
+
+    await updateArticle(
+      artigo.id,
+      { title: "Assunto versionado", summary: "v3", content: "", cat: "Recargas", dept: "Atendimento", keywords: [], nextReview: null },
+      "carla"
+    );
+    expect(await listarRevisoes(artigo.id)).toHaveLength(2);
+
+    await query("DELETE FROM articles WHERE id = $1", [artigo.id]);
   });
 });

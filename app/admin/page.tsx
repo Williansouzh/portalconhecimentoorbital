@@ -67,6 +67,21 @@ export default async function AdminPage() {
             note="fora do prazo de revisão"
             tone="danger"
           />
+          <Metric
+            label="Sem prazo de revisão"
+            value={String(m.artigos.semPrazo)}
+            note={
+              m.artigos.semPrazo > 0
+                ? "definir o prazo faz o alerta de desatualizado funcionar"
+                : "todo o acervo tem prazo definido"
+            }
+            tone={m.artigos.semPrazo > 0 ? "warn" : undefined}
+          />
+          <Metric
+            label="Conteúdo verificado"
+            value={`${m.artigos.publicados > 0 ? Math.round((m.artigos.verificados / m.artigos.publicados) * 100) : 0}%`}
+            note={`${m.artigos.verificados} de ${m.artigos.publicados} publicados`}
+          />
         </div>
 
         <div className="stack" style={{ gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 26 }}>

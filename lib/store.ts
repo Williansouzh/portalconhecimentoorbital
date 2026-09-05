@@ -205,7 +205,48 @@ export type ArticleInput = {
   nextReview: string | null;
 };
 
-export async function updateArticle(id: string, input: ArticleInput): Promise<Article | undefined> {
+export type Revisao = {
+  id: number;
+  title: string;
+  autor: string | null;
+  status: string | null;
+  criadaEm: string;
+};
+
+/** Guarda o estado atual antes de sobrescrever. */
+async function guardarRevisao(id: string, autorId: string | null) {
+  await query(
+    `INSERT INTO article_revisions (article_id, author_id, title, snippet, content, cat, dept, keywords, status)
+     SELECT id, $2, title, snippet, content, cat, dept, keywords, status FROM articles WHERE id = $1`,
+    [id, autorId]
+  );
+}
+
+export async function listarRevisoes(articleId: string): Promise<Revisao[]> {
+  const linhas = await query<{ id: string; title: string; autor: string | null; status: string | null; created_at: Date }>(
+    `SELECT r.id::text, r.title, u.short_name AS autor, r.status, r.created_at
+       FROM article_revisions r
+       LEFT JOIN users u ON u.id = r.author_id
+      WHERE r.article_id = $1
+      ORDER BY r.created_at DESC
+      LIMIT 10`,
+    [articleId]
+  );
+  return linhas.map((l) => ({
+    id: Number(l.id),
+    title: l.title,
+    autor: l.autor,
+    status: l.status,
+    criadaEm: new Date(l.created_at).toISOString(),
+  }));
+}
+
+export async function updateArticle(
+  id: string,
+  input: ArticleInput,
+  autorId: string | null = null
+): Promise<Article | undefined> {
+  await guardarRevisao(id, autorId);
   const rows = await query<ArticleRow>(
     `UPDATE articles
         SET title = $2, snippet = $3, content = $4, cat = $5, dept = $6,
@@ -229,6 +270,14 @@ export async function setArticleStatus(id: string, status: ArticleStatus): Promi
     [id, status]
   );
   return rows[0] ? rowToArticle(rows[0]) : undefined;
+}
+
+export async function marcarVerificado(id: string, verificado: boolean): Promise<Article | undefined> {
+  const linhas = await query<ArticleRow>(
+    "UPDATE articles SET verified = $2 WHERE id = $1 RETURNING *",
+    [id, verificado]
+  );
+  return linhas[0] ? rowToArticle(linhas[0]) : undefined;
 }
 
 export async function listManagedArticles(): Promise<Article[]> {

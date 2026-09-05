@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findArticle, getFavoriteIds, getRelated, updateArticle } from "@/lib/store";
+import { findArticle, getFavoriteIds, getRelated, listarRevisoes, marcarVerificado, updateArticle } from "@/lib/store";
 import { getSession } from "@/lib/session";
 import { canCurate } from "@/lib/auth";
 
@@ -33,21 +33,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const title = typeof body.title === "string" ? body.title.trim() : "";
   if (!title) return NextResponse.json({ error: "title_required" }, { status: 400 });
 
-  const article = await updateArticle(id, {
-    title,
-    summary: typeof body.summary === "string" ? body.summary : existing.snippet,
-    content: typeof body.content === "string" ? body.content : (existing.content ?? ""),
-    cat: typeof body.cat === "string" ? body.cat : existing.cat,
-    dept: typeof body.dept === "string" ? body.dept : existing.dept,
-    keywords: Array.isArray(body.keywords) ? body.keywords : existing.kw,
-    // Campo ausente mantém o valor atual; só um null/"" explícito limpa a data.
-    nextReview:
-      body.nextReview === undefined
-        ? (existing.nextReview ?? null)
-        : typeof body.nextReview === "string" && body.nextReview
-          ? body.nextReview
-          : null,
-  });
+  if (typeof body.verified === "boolean") {
+    if (session.role !== "curador") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    await marcarVerificado(id, body.verified);
+  }
 
-  return NextResponse.json({ ok: true, article });
+  const article = await updateArticle(
+    id,
+    {
+      title,
+      summary: typeof body.summary === "string" ? body.summary : existing.snippet,
+      content: typeof body.content === "string" ? body.content : (existing.content ?? ""),
+      cat: typeof body.cat === "string" ? body.cat : existing.cat,
+      dept: typeof body.dept === "string" ? body.dept : existing.dept,
+      keywords: Array.isArray(body.keywords) ? body.keywords : existing.kw,
+      // Campo ausente mantém o valor atual; só um null/"" explícito limpa a data.
+      nextReview:
+        body.nextReview === undefined
+          ? (existing.nextReview ?? null)
+          : typeof body.nextReview === "string" && body.nextReview
+            ? body.nextReview
+            : null,
+    },
+    session.id
+  );
+
+  return NextResponse.json({ ok: true, article, revisoes: await listarRevisoes(id) });
 }

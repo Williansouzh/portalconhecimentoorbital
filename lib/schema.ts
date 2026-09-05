@@ -139,6 +139,24 @@ ALTER TABLE articles ADD CONSTRAINT articles_status_check
 -- Eventos que alimentam o painel de gestão. Uma busca gera um search_event;
 -- abrir um resultado gera um result_click ligado a ele, e é essa ligação que
 -- dá tanto a taxa de cliques quanto o tempo até a resposta.
+-- Histórico de versões: editar passa a guardar a versão anterior, em vez de
+-- sobrescrever sem deixar rastro.
+CREATE TABLE IF NOT EXISTS article_revisions (
+  id         bigserial PRIMARY KEY,
+  article_id text NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  author_id  text REFERENCES users(id) ON DELETE SET NULL,
+  title      text NOT NULL,
+  snippet    text,
+  content    text,
+  cat        text,
+  dept       text,
+  keywords   text[],
+  status     text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS article_revisions_artigo_idx
+  ON article_revisions (article_id, created_at DESC);
+
 -- Sessões encerradas antes de o JWT expirar. Sem isto, um token copiado
 -- continuaria valendo até o fim das 8 horas mesmo após o logout.
 CREATE TABLE IF NOT EXISTS revoked_tokens (

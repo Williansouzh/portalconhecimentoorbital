@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/session";
-import { findArticle } from "@/lib/store";
+import { findArticle, listarRevisoes } from "@/lib/store";
 import ArticleEditor from "@/components/ArticleEditor";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -15,5 +15,6 @@ export default async function EditarArtigoPage({ params }: { params: Promise<{ i
   const article = await findArticle(id);
   if (!article) notFound();
 
-  return <ArticleEditor article={article} role={session.role} />;
+  const revisoes = await listarRevisoes(article.id);
+  return <ArticleEditor article={article} role={session.role} revisoesIniciais={revisoes} />;
 }

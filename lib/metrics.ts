@@ -6,7 +6,10 @@ export type Metricas = {
   tempoMedioSegundos: number | null;
   avaliacoes: { total: number; positivas: number; negativas: number; percentual: number | null };
   semResultado: { atual: number; anterior: number };
-  artigos: { publicados: number; rascunhos: number; revisao: number; aprovacao: number; desatualizados: number; revisaoAntiga: number };
+  artigos: {
+    publicados: number; rascunhos: number; revisao: number; aprovacao: number;
+    desatualizados: number; revisaoAntiga: number; semPrazo: number; verificados: number;
+  };
   termos: { termo: string; buscas: number; cliquePercentual: number | null }[];
   lacunas: { termo: string; buscas: number }[];
   fluxo: { status: string; total: number; cards: { id: string; title: string; meta: string; warn: boolean }[] }[];
@@ -43,7 +46,8 @@ export async function getMetricas(): Promise<Metricas> {
         WHERE results_count = 0`
     ),
     query<{
-      publicados: string; rascunhos: string; revisao: string; aprovacao: string; desatualizados: string; revisao_antiga: string;
+      publicados: string; rascunhos: string; revisao: string; aprovacao: string; desatualizados: string;
+      revisao_antiga: string; sem_prazo: string; verificados: string;
     }>(
       `SELECT count(*) FILTER (WHERE status = 'publicado')::text  AS publicados,
               count(*) FILTER (WHERE status = 'rascunho')::text   AS rascunhos,
@@ -51,7 +55,9 @@ export async function getMetricas(): Promise<Metricas> {
               count(*) FILTER (WHERE status = 'aprovacao')::text  AS aprovacao,
               count(*) FILTER (WHERE outdated)::text              AS desatualizados,
               count(*) FILTER (WHERE status = 'revisao'
-                                AND created_at < now() - interval '15 days')::text AS revisao_antiga
+                                AND created_at < now() - interval '15 days')::text AS revisao_antiga,
+              count(*) FILTER (WHERE status = 'publicado' AND next_review IS NULL)::text AS sem_prazo,
+              count(*) FILTER (WHERE verified)::text AS verificados
          FROM articles`
     ),
     query<{ termo: string; buscas: string; cliques: string }>(
@@ -128,6 +134,8 @@ export async function getMetricas(): Promise<Metricas> {
       aprovacao: Number(artigos[0]?.aprovacao ?? 0),
       desatualizados: Number(artigos[0]?.desatualizados ?? 0),
       revisaoAntiga: Number(artigos[0]?.revisao_antiga ?? 0),
+      semPrazo: Number(artigos[0]?.sem_prazo ?? 0),
+      verificados: Number(artigos[0]?.verificados ?? 0),
     },
     termos: termos.map((t) => ({
       termo: t.termo,
