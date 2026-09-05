@@ -64,9 +64,9 @@ async function seed() {
   for (const a of seedArticles) {
     await raw(
       `INSERT INTO articles
-         (id, title, cat, dept, type, read_time, views, updated_at, verified, rel,
+         (id, title, cat, dept, type, read_time, views, updated_at, published_at, verified, rel,
           keywords, snippet, content, classification, path, status)
-       VALUES ($1,$2,$3,$4,$5,$6,0, current_date, true, 0, $7,$8,$9,$10,$11,'publicado')
+       VALUES ($1,$2,$3,$4,$5,$6,0, current_date, now(), false, 0, $7,$8,$9,$10,$11,'publicado')
        ON CONFLICT (id) DO NOTHING`,
       [
         a.id,
@@ -83,6 +83,14 @@ async function seed() {
       ]
     );
   }
+
+  await encerraSeed();
+}
+
+async function encerraSeed() {
+  // O acervo já existente não é novidade para ninguém: o contador do sino
+  // começa zerado e só conta o que for publicado daqui para frente.
+  await raw("UPDATE users SET news_seen_at = now()");
 }
 
 /** ~200 palavras por minuto, arredondado para cima. */

@@ -15,7 +15,7 @@ const ROLE_LABEL: Record<string, string> = {
   curador: "Curador",
 };
 
-export default function Header({ user }: { user: SessionUser }) {
+export default function Header({ user, novidades }: { user: SessionUser; novidades: number }) {
   const pathname = usePathname();
   const router = useRouter();
   // O script inline no <head> já grava data-theme no <html> a partir do
@@ -113,10 +113,18 @@ export default function Header({ user }: { user: SessionUser }) {
           <button onClick={toggleTheme} aria-label="Alternar modo claro e escuro" className="icon-btn">
             {theme === "light" ? <MoonIcon /> : <SunIcon />}
           </button>
-          <button aria-label="Notificações, 3 novas" className="icon-btn notif">
+          <Link
+            href="/novidades"
+            aria-label={
+              novidades > 0
+                ? `${novidades} ${novidades === 1 ? "conteúdo novo" : "conteúdos novos"} desde sua última visita`
+                : "Nenhum conteúdo novo desde sua última visita"
+            }
+            className="icon-btn notif"
+          >
             <BellIcon />
-            <span className="notif-dot">3</span>
-          </button>
+            {novidades > 0 && <span className="notif-dot">{novidades > 99 ? "99+" : novidades}</span>}
+          </Link>
 
           <div ref={menuRef} style={{ position: "relative" }}>
             <button

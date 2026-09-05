@@ -58,11 +58,20 @@ type ScoredRow = ArticleRow & { rank: number; sim: number };
  * tolerância a erro de digitação por trigrama (word_similarity). Filtros e
  * ordenação entram na mesma consulta.
  */
+export type PaginaBusca = {
+  itens: { article: Article; score: number }[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+};
+
 export async function searchArticles(
   q: string,
   sort: SortKey,
-  activeFilters: string[]
-): Promise<{ article: Article; score: number }[]> {
+  activeFilters: string[],
+  pagina = 1,
+  porPagina = 20
+): Promise<PaginaBusca> {
   const tsq = buildTsQuery(q);
   const raw = normalize(q);
 
@@ -144,8 +153,40 @@ export async function searchArticles(
         WHERE ${where.join(" AND ")}
         ORDER BY ${order}`;
 
-  const rows = await query<ScoredRow & { score: number }>(sql, params);
-  return rows.map((r) => ({ article: rowToArticle(r), score: Number(r.score) || 0 }));
+  // count() na mesma consulta evita uma segunda ida ao banco só para o total.
+  const limite = Math.min(Math.max(porPagina, 1), 100);
+  const paginaAtual = Math.max(pagina, 1);
+  params.push(limite, (paginaAtual - 1) * limite);
+  const rows = await query<ScoredRow & { score: number; total: string }>(
+    `SELECT *, count(*) OVER ()::text AS total FROM (${sql}) resultado
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+
+  return {
+    itens: rows.map((r) => ({ article: rowToArticle(r), score: Number(r.score) || 0 })),
+    total: rows[0] ? Number(rows[0].total) : 0,
+    pagina: paginaAtual,
+    porPagina: limite,
+  };
+}
+
+/**
+ * "Você quis dizer…": o termo mais parecido do acervo, para quando a busca não
+ * encontra nada. Usa um corte mais frouxo que a busca, já que aqui é sugestão.
+ */
+export async function sugestaoDeCorrecao(q: string): Promise<string | null> {
+  const raw = normalize(q);
+  if (!raw.trim()) return null;
+  const rows = await query<{ termo: string }>(
+    `SELECT title AS termo
+       FROM articles
+      WHERE status = 'publicado' AND word_similarity($1, searchable) >= 0.45
+      ORDER BY word_similarity($1, searchable) DESC
+      LIMIT 1`,
+    [raw]
+  );
+  return rows[0]?.termo ?? null;
 }
 
 export function toSearchResult(

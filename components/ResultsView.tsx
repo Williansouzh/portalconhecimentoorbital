@@ -31,6 +31,11 @@ type FilterGroup = { key: string; label: string; options: FilterOption[] };
 type SearchResponse = {
   q: string;
   searchEventId: number | null;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
+  sugestao: string | null;
+  termosSugeridos: string[];
   results: SearchResult[];
   resultCount: number;
   searchTimeMs: number;
@@ -43,7 +48,6 @@ const SORT_LABEL: Record<string, string> = {
   acessados: "mais acessados",
   recentes: "mais recentes",
 };
-const POPULAR = ["redefinir senha", "férias", "reembolso", "trabalho remoto", "chamados"];
 
 export default function ResultsView() {
   const searchParams = useSearchParams();
@@ -52,33 +56,62 @@ export default function ResultsView() {
   // categorias abre a listagem daquela categoria, sem depender de a busca
   // textual casar com o nome dela.
   const filtrosDaUrl = searchParams.getAll("filter");
+  const ordemDaUrl = searchParams.get("sort") ?? "relevancia";
   // A chave remonta o painel (sort/filtros/visualização limpos) em vez de
   // reconciliar por setState dentro de efeito.
-  return <ResultsPanel key={`${q}|${filtrosDaUrl.join(",")}`} q={q} filtrosIniciais={filtrosDaUrl} />;
+  return (
+    <ResultsPanel
+      key={`${q}|${filtrosDaUrl.join(",")}|${ordemDaUrl}`}
+      q={q}
+      filtrosIniciais={filtrosDaUrl}
+      ordemInicial={ordemDaUrl}
+    />
+  );
 }
 
-function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: string[] }) {
+function ResultsPanel({
+  q,
+  filtrosIniciais,
+  ordemInicial,
+}: {
+  q: string;
+  filtrosIniciais: string[];
+  ordemInicial: string;
+}) {
   const router = useRouter();
   const { showToast } = useUI();
 
-  const [sort, setSort] = useState("relevancia");
+  const [sort, setSort] = useState(ordemInicial);
   const [filters, setFilters] = useState<string[]>(filtrosIniciais);
   const [view, setView] = useState<"list" | "cards">("list");
+  const [pagina, setPagina] = useState(1);
   const [data, setData] = useState<SearchResponse | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("q", q);
     params.set("sort", sort);
+    params.set("page", String(pagina));
     filters.forEach((f) => params.append("filter", f));
     fetch(`/api/search?${params.toString()}`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData(null));
-  }, [q, sort, filters]);
+  }, [q, sort, filters, pagina]);
 
   function toggleFilter(key: string) {
+    setPagina(1);
     setFilters((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
+  }
+
+  function mudarOrdem(valor: string) {
+    setPagina(1);
+    setSort(valor);
+  }
+
+  function irPara(destino: number) {
+    setPagina(destino);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function toggleFav(id: string) {
@@ -132,6 +165,12 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
       ? categoriasAtivas.join(" e ")
       : "Todo o acervo";
 
+  const inicioDaPagina = data.resultCount === 0 ? 0 : (data.pagina - 1) * data.porPagina + 1;
+  const fimDaPagina = Math.min(data.pagina * data.porPagina, data.resultCount);
+  // Janela de 5 páginas ao redor da atual.
+  const primeira = Math.max(1, Math.min(data.pagina - 2, data.totalPaginas - 4));
+  const paginasVisiveis = Array.from({ length: Math.min(5, data.totalPaginas) }, (_, i) => primeira + i);
+
   const gridStyle =
     view === "cards"
       ? { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14 }
@@ -167,7 +206,7 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
             <label htmlFor="sort" style={{ font: "500 13px/1 var(--font-body)", color: "var(--text2)" }}>
               Ordenar por
             </label>
-            <select id="sort" className="select" value={sort} onChange={(e) => setSort(e.target.value)} style={{ width: "auto" }}>
+            <select id="sort" className="select" value={sort} onChange={(e) => mudarOrdem(e.target.value)} style={{ width: "auto" }}>
               <option value="relevancia">Relevância</option>
               <option value="acessados">Mais acessados</option>
               <option value="recentes">Mais recentes</option>
@@ -201,7 +240,7 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
             <button
               className="btn-dashed"
               style={{ height: 32, padding: "0 12px", borderRadius: 16, font: "500 13px/1 var(--font-body)" }}
-              onClick={() => setFilters([])}
+              onClick={() => { setPagina(1); setFilters([]); }}
             >
               Limpar todos
             </button>
@@ -235,7 +274,7 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
                 })}
               </div>
             ))}
-            <button className="btn btn-secondary" style={{ width: "100%", marginTop: 14 }} onClick={() => setFilters([])}>
+            <button className="btn btn-secondary" style={{ width: "100%", marginTop: 14 }} onClick={() => { setPagina(1); setFilters([]); }}>
               Limpar filtros
             </button>
           </aside>
@@ -341,8 +380,38 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginTop: 26 }}>
                   <span style={{ font: "400 13.5px/1 var(--font-body)", color: "var(--text3)" }}>
-                    Mostrando {data.resultCount} de {data.resultCount} resultados
+                    Mostrando {inicioDaPagina}–{fimDaPagina} de {data.resultCount}
                   </span>
+                  {data.totalPaginas > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        aria-label="Página anterior"
+                        disabled={data.pagina <= 1}
+                        onClick={() => irPara(data.pagina - 1)}
+                        className="pag-btn"
+                      >
+                        ‹
+                      </button>
+                      {paginasVisiveis.map((n) => (
+                        <button
+                          key={n}
+                          aria-current={n === data.pagina ? "page" : undefined}
+                          onClick={() => irPara(n)}
+                          className={`pag-btn${n === data.pagina ? " on" : ""}`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        aria-label="Próxima página"
+                        disabled={data.pagina >= data.totalPaginas}
+                        onClick={() => irPara(data.pagina + 1)}
+                        className="pag-btn"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -364,15 +433,25 @@ function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: stri
                   ?
                 </div>
                 <h2 style={{ margin: "0 0 8px", font: "600 22px/1.25 var(--font-head)" }}>Nada encontrado para &ldquo;{q}&rdquo;</h2>
-                <p style={{ margin: "0 auto 22px", maxWidth: 460, font: "400 15px/1.55 var(--font-body)", color: "var(--text2)" }}>
-                  Talvez você quis dizer{" "}
-                  <button className="btn-ghost" style={{ fontSize: 15 }} onClick={() => router.push("/resultados?q=redefinir%20senha")}>
-                    redefinir senha
-                  </button>
-                  ? Você também pode tentar os termos abaixo.
+                <p style={{ margin: "0 auto 22px", maxWidth: 480, font: "400 15px/1.55 var(--font-body)", color: "var(--text2)" }}>
+                  {data.sugestao ? (
+                    <>
+                      Talvez você queira{" "}
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: 15 }}
+                        onClick={() => router.push(`/resultados?q=${encodeURIComponent(data.sugestao!)}`)}
+                      >
+                        {data.sugestao}
+                      </button>
+                      . Você também pode tentar os termos abaixo.
+                    </>
+                  ) : (
+                    "Nenhum conteúdo do acervo se aproxima desse termo. Tente um dos assuntos abaixo ou peça ajuda."
+                  )}
                 </p>
                 <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8, marginBottom: 26 }}>
-                  {POPULAR.map((p) => (
+                  {data.termosSugeridos.map((p) => (
                     <Link key={p} href={`/resultados?q=${encodeURIComponent(p)}`} className="pill">
                       {p}
                     </Link>

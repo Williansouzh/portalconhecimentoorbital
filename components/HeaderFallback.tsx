@@ -5,7 +5,7 @@ import type { SessionUser } from "@/lib/auth";
 
 // Espelho estático e não interativo do <Header/> enquanto o componente
 // cliente é hidratado — evita um cabeçalho em branco no primeiro paint.
-export default function HeaderFallback({ user }: { user: SessionUser }) {
+export default function HeaderFallback({ user, novidades }: { user: SessionUser; novidades: number }) {
   const initials = user.shortName
     .split(" ")
     .map((p) => p[0])
@@ -50,7 +50,7 @@ export default function HeaderFallback({ user }: { user: SessionUser }) {
           </span>
           <span aria-hidden="true" className="icon-btn notif">
             <BellIcon />
-            <span className="notif-dot">3</span>
+            {novidades > 0 && <span className="notif-dot">{novidades > 99 ? "99+" : novidades}</span>}
           </span>
           <span className="profile-btn">
             <span className="profile-avatar" aria-hidden="true">

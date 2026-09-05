@@ -9,6 +9,39 @@ function aberturasLabel(n: number): string {
   return `${n.toLocaleString("pt-BR")} ${n === 1 ? "abertura" : "aberturas"}`;
 }
 
+/**
+ * Novidades desde a última vez que a pessoa abriu a lista. Contar "publicados
+ * nos últimos 7 dias" não serve: uma carga inicial deixaria o contador
+ * gritando por uma semana para todo mundo.
+ */
+export async function novidadesRecentes(userId: string): Promise<number> {
+  const linhas = await query<{ n: string }>(
+    `SELECT count(*)::text AS n
+       FROM articles a, users u
+      WHERE u.id = $1
+        AND a.status = 'publicado'
+        AND a.published_at > coalesce(u.news_seen_at, u.created_at)`,
+    [userId]
+  );
+  return Number(linhas[0]?.n ?? 0);
+}
+
+export async function marcarNovidadesVistas(userId: string): Promise<void> {
+  await query("UPDATE users SET news_seen_at = now() WHERE id = $1", [userId]);
+}
+
+/** Termos mais buscados de verdade; sem histórico suficiente, os do acervo. */
+export async function termosPopulares(): Promise<string[]> {
+  const linhas = await query<{ termo: string }>(
+    `SELECT mode() WITHIN GROUP (ORDER BY term) AS termo
+       FROM search_events
+      WHERE created_at >= now() - interval '30 days' AND results_count > 0
+      GROUP BY normalized HAVING count(*) >= 3
+      ORDER BY count(*) DESC LIMIT 5`
+  );
+  return linhas.length > 0 ? linhas.map((t) => t.termo) : termosSugeridos;
+}
+
 export async function getHomeData(userId: string) {
   const [maisAbertos, recentes, historico, favoritos, categorias, termos] = await Promise.all([
     // Popularidade real: quantas vezes o conteúdo foi aberto.

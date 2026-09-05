@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- Quando o usuário viu a lista de novidades pela última vez.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS news_seen_at timestamptz DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS articles (
   id         text PRIMARY KEY,
   title      text NOT NULL,
@@ -65,6 +68,9 @@ ALTER TABLE articles ADD COLUMN IF NOT EXISTS content text;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS next_review date;
 -- Classificação do chamado: o caminho que o atendente registra no sistema.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS classification text;
+-- Momento da publicação. updated_at é uma data, e comparar datas faria uma
+-- publicação do mesmo dia nunca contar como novidade.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS published_at timestamptz;
 
 -- A barra vira espaço antes de indexar: o Postgres trata "VT/EXPRESSO" como
 -- um token único, o que deixava "expresso" sem casar naquele trecho.

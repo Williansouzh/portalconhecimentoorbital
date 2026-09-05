@@ -217,8 +217,8 @@ export async function setArticleStatus(id: string, status: ArticleStatus): Promi
   const rows = await query<ArticleRow>(
     `UPDATE articles
         SET status = $2,
-            updated_at = CASE WHEN $2 = 'publicado' THEN current_date ELSE updated_at END,
-            verified = CASE WHEN $2 = 'publicado' THEN true ELSE verified END
+            updated_at   = CASE WHEN $2 = 'publicado' THEN current_date ELSE updated_at END,
+            published_at = CASE WHEN $2 = 'publicado' THEN now() ELSE published_at END
       WHERE id = $1
       RETURNING *`,
     [id, status]

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { filterGroups, searchArticles, toSearchResult, type SortKey } from "@/lib/results";
+import { filterGroups, searchArticles, sugestaoDeCorrecao, toSearchResult, type SortKey } from "@/lib/results";
 import { getFavoriteIds, addSearch } from "@/lib/store";
 import { getSession } from "@/lib/session";
+import { termosPopulares } from "@/lib/home";
 import { recordSearch } from "@/lib/events";
 
 export async function GET(req: NextRequest) {
@@ -12,16 +13,19 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q") ?? "";
   const sort = (searchParams.get("sort") as SortKey) || "relevancia";
   const filters = searchParams.getAll("filter");
+  const pagina = Number(searchParams.get("page") ?? "1") || 1;
 
-  const [favs, found, grupos] = await Promise.all([
+  const [favs, pagi, grupos] = await Promise.all([
     getFavoriteIds(session.id),
-    searchArticles(q, sort, filters),
+    searchArticles(q, sort, filters, pagina),
     filterGroups(),
   ]);
 
-  const topScore = found.reduce((max, r) => Math.max(max, r.score), 0);
-  const results = found.map(({ article, score }) => toSearchResult(article, q, favs, score, topScore));
-  const searchEventId = await recordSearch(session.id, q, results.length);
+  const topScore = pagi.itens.reduce((max, r) => Math.max(max, r.score), 0);
+  const results = pagi.itens.map(({ article, score }) => toSearchResult(article, q, favs, score, topScore));
+  const searchEventId = await recordSearch(session.id, q, pagi.total);
+  const sugestao = pagi.total === 0 && q.trim() ? await sugestaoDeCorrecao(q) : null;
+  const termosSugeridos = pagi.total === 0 ? await termosPopulares() : [];
 
   const groups = grupos.meta.map((g) => ({
     key: g.key,
@@ -39,7 +43,12 @@ export async function GET(req: NextRequest) {
     sort,
     searchEventId,
     results,
-    resultCount: results.length,
+    resultCount: pagi.total,
+    pagina: pagi.pagina,
+    porPagina: pagi.porPagina,
+    totalPaginas: Math.max(1, Math.ceil(pagi.total / pagi.porPagina)),
+    sugestao,
+    termosSugeridos,
     searchTimeMs: Math.round(q.length * 4 + 62),
     filterGroups: groups,
     activeFilters: filters,

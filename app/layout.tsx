@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import HeaderFallback from "@/components/HeaderFallback";
 import UIProvider from "@/components/UIProvider";
 import { getSession } from "@/lib/session";
+import { novidadesRecentes } from "@/lib/home";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ try {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Sem sessão significa tela de login: ali o cabeçalho não aparece.
   const session = await getSession();
+  const novidades = session ? await novidadesRecentes(session.id) : 0;
 
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${figtree.variable}`}>
@@ -44,8 +46,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <UIProvider>
           {session && (
-            <Suspense fallback={<HeaderFallback user={session} />}>
-              <Header user={session} />
+            <Suspense fallback={<HeaderFallback user={session} novidades={novidades} />}>
+              <Header user={session} novidades={novidades} />
             </Suspense>
           )}
           {children}

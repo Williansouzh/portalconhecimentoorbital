@@ -9,7 +9,7 @@ export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[
   const groups: SuggestionGroup[] = [];
   const termo = normalize(q);
 
-  const found = (await searchArticles(q, "relevancia", [])).slice(0, 4);
+  const found = (await searchArticles(q, "relevancia", [], 1, 4)).itens;
   if (found.length) {
     groups.push({
       label: "Conteúdos",
