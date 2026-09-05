@@ -204,120 +204,69 @@ identifica dois assuntos diferentes (o segundo recebe id `atm-01-2`), `BL-03`
 está vazio, e 21 assuntos não têm a linha de classificação — nesses, o portal
 simplesmente não mostra o bloco.
 
-## Autenticação
+O conteúdo não traz duas informações que o portal sabe exibir mas ninguém
+preencheu: **área responsável** por assunto (tudo está como "Atendimento") e
+**periodicidade de revisão** (`next_review` nulo nos 239). O painel mostra isso
+como lacuna — "sem prazo de revisão: 239" — em vez de inventar data. Definir
+essas duas é decisão da operação, não do código.
 
-Sessão por **JWT (HS256) em cookie httpOnly**, assinado com `AUTH_SECRET` —
-obrigatório em produção, com fallback só de desenvolvimento. O `middleware.ts`
-barra tudo que não seja `/login` e `/api/auth/login`: página sem sessão
-redireciona para o login (preservando o destino em `?next=`), rota de API sem
-sessão responde 401.
+## Testes
 
-Três papéis: **leitor**, **autor** e **curador**. Autor e curador enxergam o
-item "Gestão" no menu e acessam `/admin` e `/admin/editor`; para os demais o
-middleware redireciona, e `POST /api/articles` responde 403.
+```bash
+npm test              # unitários + integração
+npm run test:unit     # só os que não precisam de banco
+```
 
-Favoritos, histórico e pesquisas recentes são **por usuário** — cada sessão lê e
-escreve apenas o seu subconjunto do store.
+39 testes em Vitest. Os unitários cobrem o que é lógica pura — montagem do
+`tsquery`, sinônimos, stopwords, permissão por papel, formatação. Os de
+integração sobem o schema num banco `portal_test` recriado do zero e exercitam
+busca, paginação, workflow editorial e revogação de sessão contra o Postgres de
+verdade, porque é justamente aí que os erros apareceram (índice não usado,
+`OR` derrubando o plano, revogação global invalidando o login seguinte).
 
-### Usuários de demonstração
+Cada teste foi conferido reintroduzindo a regressão que ele deve pegar — um
+teste que passa nos dois casos não testa nada. O `.github/workflows/ci.yml`
+roda tipos, lint, testes e build a cada push, com Postgres como service.
 
-Criados no primeiro boot, com senha `Portal2026` (ou `SEED_PASSWORD`):
+## Mobile
 
-| E-mail | Papel | Área |
-| --- | --- | --- |
-| ana.coutinho@riocard.com.br | leitor | Operações |
-| bruno.lima@riocard.com.br | autor | RH · Pessoas |
-| carla.menezes@riocard.com.br | curador | TI · Suporte |
+Abaixo de 720px a navegação vira barra fixa no rodapé (respeitando
+`env(safe-area-inset-bottom)`), a busca ocupa a linha inteira do cabeçalho, os
+filtros da busca ficam atrás de um botão "Filtros (n)" e as tabelas rolam na
+horizontal dentro do próprio card. Os campos de texto usam 16px porque abaixo
+disso o iOS dá zoom ao focar.
 
-A senha atende à mesma política que o portal exige na troca: 10 caracteres,
-com maiúscula, minúscula e número. São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
-ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
-`app/api/auth/login`.
+## Operação
 
-## Telas
+```bash
+curl localhost:3200/api/health   # {"status":"ok","banco":"ok","artigos":239,...}
+scripts/backup.sh [destino]      # dump comprimido, mantém 14 dias
+```
 
-| Rota | Tela |
-| --- | --- |
-| `/` | Home com busca em destaque, categorias, mais pesquisados, continuar lendo |
-| `/resultados?q=` | Resultados com filtros, ordenação, lista/cartões |
-| `/artigo/[id]` | Artigo com índice fixo, passos, avaliação e relacionados |
-| `/categorias` | As 8 áreas de conteúdo |
-| `/favoritos?tab=` | Favoritos, histórico, pesquisas recentes e recomendados |
-| `/admin` | Painel de gestão: métricas, lacunas de conteúdo, fluxo editorial |
-| `/admin/editor` | Novo artigo (aceita `?termo=` vindo de uma lacuna) |
-| `/admin/editor/[id]` | Editar artigo existente |
-| `/estados` | Catálogo dos 11 estados de carregamento, vazio e erro |
-| `/design-system` | Cores, tipografia, espaçamento, botões, alertas |
-| `/mapa` | Mapa de telas, fluxo principal e decisões de UX |
+`/api/health` só responde 200 se o banco responde — é ele que o healthcheck do
+compose consulta, então o container fica `unhealthy` quando o Postgres cai, em
+vez de aceitar tráfego que vai falhar. É a única rota fora da autenticação além
+do login.
 
-## API
+Restaurar um backup:
 
-| Rota | O que faz |
-| --- | --- |
-| `GET /api/search` | Busca com ranking, filtros (categoria/departamento/tipo/data) e ordenação |
-| `GET /api/suggestions` | Sugestões agrupadas (conteúdos, termos, categorias, sistemas, FAQ) |
-| `GET /api/articles/[id]` | Artigo, corpo e relacionados |
-| `POST /api/articles` · `PATCH /api/articles/[id]` | Cria e edita conteúdo |
-| `POST /api/articles/[id]/status` | Move o artigo no fluxo editorial |
-| `GET/POST/DELETE /api/favorites` | Favoritos |
-| `GET/POST/DELETE /api/history` | Histórico de leitura |
-| `GET/POST/DELETE /api/searches` | Pesquisas recentes |
-| `POST /api/feedback` | Avaliação do artigo e aviso de conteúdo desatualizado |
-| `POST /api/search/click` | Clique num resultado, atribuído à busca que o originou |
-| `GET /api/home`, `GET /api/categories` | Dados agregados da home e categorias |
-| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | Sessão |
+```bash
+gunzip -c backups/portal-AAAAMMDD-HHMMSS.sql.gz | docker exec -i portal-postgres psql -U portal -d portal
+```
 
-### Busca
+O dump usa `--clean --if-exists`, então restaura por cima de um banco existente.
+O volume `portal-pgdata` é o que precisa sobreviver a um `docker compose down`.
 
-Feita no banco, com o comportamento que o design pede: ignora acento
-(`unaccent`), aceita prefixo (`senh` já encontra), tolera erro de digitação
-(`pg_trgm`, `word_similarity`) e expande sinônimos — "ticket" encontra
-"chamado", "password" encontra "senha". O ranking usa `ts_rank_cd` sobre uma
-coluna `tsvector` gerada com peso por campo: título (A) pesa mais que
-palavra-chave (B), que pesa mais que categoria/área (C) e resumo (D).
-`lib/search.ts` cuida só do que é apresentação: normalizar, montar o `tsquery`
-e destacar o trecho.
+Os logs saem em JSON de uma linha (`lib/log.ts`), com `ts`, `nivel` e `evento`,
+para serem consumidos sem parser próprio.
 
-Os dois índices têm papéis distintos: o full-text cobre tudo, inclusive o corpo
-do artigo; o trigrama cobre só título, palavras-chave e resumo, e serve de plano
-B para erro de digitação. Comparar trigrama contra o texto inteiro produzia
-casamento atravessando fronteira de palavra ("senha" achava um roteiro que não
-fala de senha, 0.67 de similaridade contra 0.33 no campo enxuto).
+### O que depende de decisão de vocês
 
-Outros dois detalhes valem registro, porque não são óbvios:
+Três itens ficaram de fora porque não dá para decidir por conta própria:
 
-- As duas condições (full-text e trigrama) entram como CTEs separadas. Num
-  único `OR`, o planner abandona os índices GIN e varre a tabela: medido em 20
-  mil linhas, 221 ms contra 3,4 ms.
-- Os índices GIN são **parciais** (`WHERE status = 'publicado'`). Como o
-  status casa com quase toda a tabela, o índice completo era descartado.
-
-### Persistência
-
-Oito tabelas: `users`, `articles`, `favorites`, `history`, `recent_searches` e
-as três de eventos (`search_events`, `result_clicks`, `article_feedback`).
-Favoritos e histórico são tabelas de ligação com chave estrangeira e
-`ON DELETE CASCADE`; o corpo do artigo (passos, requisitos, FAQ) fica em
-`jsonb`. O DDL vive em `lib/schema.ts` e roda a cada boot, sempre idempotente.
-
-## Conteúdo
-
-O acervo vem de **ASSUNTOS PROMPT ATENDIMENTO**, o catálogo de roteiros da
-central. Cada assunto do documento virou um artigo, com este mapeamento:
-
-| No documento | No portal |
-| --- | --- |
-| Seção (`RECARGAS`) | categoria |
-| Código (`RG-01`) | id do artigo e primeira palavra-chave |
-| Título | título |
-| "Cliente entra em contato…" | resumo + seção **Situação** |
-| Campos a preencher (`CPF:`, `Valor:`) | seção **Dados a coletar** |
-| "Orientado de que…" | seção **Orientação** |
-| `INF - COMPRADOR - VT/EXPRESSO - …` | campo próprio, em destaque no topo do artigo |
-
-A classificação ganhou campo próprio porque é o que o atendente copia para o
-chamado — fica visível sem precisar rolar, e entra no índice de busca.
-
-Para acrescentar outra seção do catálogo, basta estender `seedArticles` em
-`lib/data.ts` (ou criar pelo editor, que grava direto no banco).
-
+- **SSO corporativo** — precisa do IdP de vocês. O ponto de troca está
+  documentado em Autenticação.
+- **Captura de erro** (Sentry ou equivalente) — precisa de conta e de política
+  sobre o que pode sair da rede interna. O log estruturado já dá o dado bruto.
+- **Anexos e imagens nos artigos** — precisa decidir onde os arquivos ficam
+  (volume, S3, SharePoint); o editor hoje só aceita texto.

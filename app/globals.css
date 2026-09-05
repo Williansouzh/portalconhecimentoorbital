@@ -1040,3 +1040,111 @@ table.table td {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ---------- mobile ---------- */
+@media (max-width: 720px) {
+  main,
+  .main-loose {
+    padding: 20px 16px 72px;
+  }
+
+  .hdr-inner {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  /* A busca ganha a linha inteira: é a ação principal do portal. */
+  .hdr-search-slot {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+    padding-bottom: 4px;
+  }
+  .hdr-logo-mark {
+    width: 84px;
+    height: 33px;
+  }
+  .hdr-logo-mark img {
+    width: 117px;
+    height: 88px;
+    margin: -27px 0 0 -22px;
+  }
+  .hdr-logo-word {
+    display: none;
+  }
+  .profile-btn {
+    padding: 0 6px 0 4px;
+  }
+
+  /* Navegação principal vira barra fixa embaixo, ao alcance do polegar. */
+  .hdr-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 45;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 12px rgba(14, 29, 41, 0.08);
+  }
+  .hdr-nav-btn {
+    flex: 1;
+    justify-content: center;
+    height: 44px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 12.5px;
+  }
+
+  h1 {
+    font-size: 26px !important;
+    line-height: 1.2 !important;
+  }
+  .hero-field {
+    height: auto;
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .hero-field input {
+    flex: 1 0 100%;
+    order: 2;
+    font-size: 16px; /* abaixo de 16px o iOS dá zoom ao focar */
+  }
+  .kbd {
+    display: none;
+  }
+  .btn-hero-submit {
+    flex: 1;
+    order: 3;
+  }
+  .sug-panel.hero {
+    top: 100%;
+    margin-top: 6px;
+  }
+
+  /* Filtros da busca só ocupam a tela quando a pessoa pede. */
+  .filtros-mobile {
+    display: block;
+  }
+  .filtros-recolhidos {
+    display: none;
+  }
+
+  table.table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 721px) {
+  .filtros-mobile {
+    display: none;
+  }
+}

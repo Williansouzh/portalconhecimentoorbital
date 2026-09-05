@@ -43,3 +43,6 @@ next-env.d.ts
 
 # o exemplo de configuração é versionado; os .env reais não
 !.env.example
+
+# backups locais do banco
+/backups/

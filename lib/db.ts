@@ -3,6 +3,7 @@ import { SCHEMA_SQL } from "./schema";
 import { seedArticles } from "./data";
 import { hashPassword } from "./passwords";
 import type { Role } from "./auth";
+import { log } from "./log";
 
 // Pool e inicialização vivem no globalThis: server components e route handlers
 // são empacotados em chunks separados e cada um teria o seu próprio pool,
@@ -109,6 +110,7 @@ export function ready(): Promise<void> {
       // Uma falha não pode ficar cacheada: o próximo request tenta de novo
       // (o banco pode ainda estar subindo).
       globalThis.__portalReady = undefined;
+      log.erro("db.inicializacao_falhou", err);
       throw err;
     });
   }

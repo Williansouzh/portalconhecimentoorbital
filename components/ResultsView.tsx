@@ -85,6 +85,7 @@ function ResultsPanel({
   const [filters, setFilters] = useState<string[]>(filtrosIniciais);
   const [view, setView] = useState<"list" | "cards">("list");
   const [pagina, setPagina] = useState(1);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [data, setData] = useState<SearchResponse | null>(null);
 
   useEffect(() => {
@@ -247,8 +248,28 @@ function ResultsPanel({
           </div>
         )}
 
+        <button
+          className="btn btn-secondary filtros-mobile"
+          aria-expanded={filtrosAbertos}
+          onClick={() => setFiltrosAbertos((v) => !v)}
+          style={{ width: "100%", marginBottom: 14 }}
+        >
+          {chips.length > 0 ? `Filtros (${chips.length})` : "Filtros"}
+        </button>
+
         <div className="stack" style={{ gridTemplateColumns: "264px 1fr", gap: 26, alignItems: "start" }}>
-          <aside aria-label="Filtros" className="card" style={{ position: "sticky", top: 88, padding: "6px 18px 14px" }}>
+          <aside
+            aria-label="Filtros"
+            className={`card${filtrosAbertos ? "" : " filtros-recolhidos"}`}
+            style={{ position: "sticky", top: 88, padding: "6px 18px 14px" }}
+          >
+            <button
+              className="btn btn-secondary filtros-mobile"
+              onClick={() => setFiltrosAbertos(false)}
+              style={{ width: "100%", marginTop: 10 }}
+            >
+              Ver resultados
+            </button>
             {data.filterGroups.map((g) => (
               <div key={g.key} style={{ padding: "14px 0", borderBottom: "1px solid var(--border)" }}>
                 <div
