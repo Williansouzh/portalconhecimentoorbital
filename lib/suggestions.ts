@@ -70,7 +70,7 @@ export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[
         id: `cat:${c}`,
         text: c,
         meta: `${byCat.get(c) ?? 0} conteúdos nesta categoria`,
-        href: `/resultados?q=${encodeURIComponent(c)}`,
+        href: `/resultados?filter=${encodeURIComponent(`cat|${c}`)}`,
         kind: "Categoria",
         glyph: "◧",
       })),

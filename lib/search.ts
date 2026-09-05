@@ -22,6 +22,14 @@ export function synonymsFor(term: string): string[] {
   return [...out];
 }
 
+// Preposições e artigos viram lexema vazio no dicionário português: mantê-los
+// no AND fazia a consulta inteira falhar ("bolsa de crédito" não achava nada).
+const VAZIAS = new Set([
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "do", "da", "dos", "das",
+  "em", "no", "na", "nos", "nas", "ao", "aos", "e", "ou", "que", "por", "pelo", "pela",
+  "com", "para", "se", "ser", "foi",
+]);
+
 /**
  * Monta o tsquery: cada termo digitado vira um grupo OR com seus sinônimos,
  * todos com prefixo (`:*`) para a busca responder já na terceira letra, e os
@@ -32,9 +40,11 @@ export function buildTsQuery(q: string): string {
     .split(/\s+/)
     .map((t) => t.replace(/[^a-z0-9]/g, ""))
     .filter(Boolean);
-  if (!terms.length) return "";
+  const uteis = terms.filter((t) => !VAZIAS.has(t));
+  const efetivos = uteis.length ? uteis : terms;
+  if (!efetivos.length) return "";
 
-  return terms
+  return efetivos
     .map((term) => {
       const alternatives = [term, ...synonymsFor(term).map((s) => s.replace(/[^a-z0-9 ]/g, "").split(" ")[0])]
         .filter(Boolean)

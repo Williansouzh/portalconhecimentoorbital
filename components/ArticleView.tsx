@@ -106,7 +106,7 @@ export default function ArticleView({
         <nav aria-label="Trilha" className="trail">
           <Link href="/">Início</Link>
           <span aria-hidden="true">›</span>
-          <Link href={`/resultados?q=${encodeURIComponent(article.cat)}`}>{article.cat}</Link>
+          <Link href={`/resultados?filter=${encodeURIComponent(`cat|${article.cat}`)}`}>{article.cat}</Link>
           <span aria-hidden="true">›</span>
           <span>{article.title}</span>
         </nav>

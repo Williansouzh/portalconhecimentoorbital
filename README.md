@@ -168,6 +168,138 @@ Favoritos e histórico são tabelas de ligação com chave estrangeira e
 
 ## Conteúdo
 
+O acervo é o documento **ASSUNTOS PROMPT ATENDIMENTO** da central: 239 artigos
+em 23 categorias, sendo 178 assuntos com código (`GT-05`, `RG-01`…) e o
+restante os roteiros de e-mail (PAP) e o material de apoio.
+
+Mapeamento de cada assunto:
+
+| No documento | No portal |
+| --- | --- |
+| Seção (`(GT) GRATUIDADE`) | categoria |
+| Código (`GT-05`) | id do artigo e primeira palavra-chave |
+| Título | título, convertido de CAIXA ALTA preservando siglas |
+| "Cliente entra em contato…" | resumo + seção **Situação** |
+| Campos a preencher (`CPF:`, `Valor:`) | seção **Dados a coletar** |
+| "Orientado de que…" | seção **Orientação** |
+| `INF - COMPRADOR - VT/EXPRESSO - …` | campo próprio, em destaque no topo |
+
+A classificação ganhou campo próprio porque é o que o atendente copia para o
+chamado — fica visível sem rolar e entra no índice de busca.
+
+### Regerar o conteúdo
+
+```bash
+python3 scripts/importar-assuntos.py documento.md
+```
+
+O script converte a exportação em Markdown do documento para
+`lib/content/assuntos.json`, que alimenta o seed. Ele reporta o que encontrou:
+assuntos por seção, blocos descartados por não terem corpo e códigos repetidos
+na origem.
+
+O documento tem inconsistências que o importador contorna e relata: `ATM-01`
+identifica dois assuntos diferentes (o segundo recebe id `atm-01-2`), `BL-03`
+está vazio, e 21 assuntos não têm a linha de classificação — nesses, o portal
+simplesmente não mostra o bloco.
+
+## Autenticação
+
+Sessão por **JWT (HS256) em cookie httpOnly**, assinado com `AUTH_SECRET` —
+obrigatório em produção, com fallback só de desenvolvimento. O `middleware.ts`
+barra tudo que não seja `/login` e `/api/auth/login`: página sem sessão
+redireciona para o login (preservando o destino em `?next=`), rota de API sem
+sessão responde 401.
+
+Três papéis: **leitor**, **autor** e **curador**. Autor e curador enxergam o
+item "Gestão" no menu e acessam `/admin` e `/admin/editor`; para os demais o
+middleware redireciona, e `POST /api/articles` responde 403.
+
+Favoritos, histórico e pesquisas recentes são **por usuário** — cada sessão lê e
+escreve apenas o seu subconjunto do store.
+
+### Usuários de demonstração
+
+Criados no primeiro boot, com senha `portal2026` (ou `SEED_PASSWORD`):
+
+| E-mail | Papel | Área |
+| --- | --- | --- |
+| ana.coutinho@riocard.com.br | leitor | Operações |
+| bruno.lima@riocard.com.br | autor | RH · Pessoas |
+| carla.menezes@riocard.com.br | curador | TI · Suporte |
+
+São apenas para a demo. Um deploy real troca esse seed por SSO corporativo — o
+ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
+`app/api/auth/login`.
+
+## Telas
+
+| Rota | Tela |
+| --- | --- |
+| `/` | Home com busca em destaque, categorias, mais pesquisados, continuar lendo |
+| `/resultados?q=` | Resultados com filtros, ordenação, lista/cartões |
+| `/artigo/[id]` | Artigo com índice fixo, passos, avaliação e relacionados |
+| `/categorias` | As 8 áreas de conteúdo |
+| `/favoritos?tab=` | Favoritos, histórico, pesquisas recentes e recomendados |
+| `/admin` | Painel de gestão: métricas, lacunas de conteúdo, fluxo editorial |
+| `/admin/editor` | Novo artigo (aceita `?termo=` vindo de uma lacuna) |
+| `/admin/editor/[id]` | Editar artigo existente |
+| `/estados` | Catálogo dos 11 estados de carregamento, vazio e erro |
+| `/design-system` | Cores, tipografia, espaçamento, botões, alertas |
+| `/mapa` | Mapa de telas, fluxo principal e decisões de UX |
+
+## API
+
+| Rota | O que faz |
+| --- | --- |
+| `GET /api/search` | Busca com ranking, filtros (categoria/departamento/tipo/data) e ordenação |
+| `GET /api/suggestions` | Sugestões agrupadas (conteúdos, termos, categorias, sistemas, FAQ) |
+| `GET /api/articles/[id]` | Artigo, corpo e relacionados |
+| `POST /api/articles` · `PATCH /api/articles/[id]` | Cria e edita conteúdo |
+| `POST /api/articles/[id]/status` | Move o artigo no fluxo editorial |
+| `GET/POST/DELETE /api/favorites` | Favoritos |
+| `GET/POST/DELETE /api/history` | Histórico de leitura |
+| `GET/POST/DELETE /api/searches` | Pesquisas recentes |
+| `POST /api/feedback` | Avaliação do artigo e aviso de conteúdo desatualizado |
+| `POST /api/search/click` | Clique num resultado, atribuído à busca que o originou |
+| `GET /api/home`, `GET /api/categories` | Dados agregados da home e categorias |
+| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | Sessão |
+
+### Busca
+
+Feita no banco, com o comportamento que o design pede: ignora acento
+(`unaccent`), aceita prefixo (`senh` já encontra), tolera erro de digitação
+(`pg_trgm`, `word_similarity`) e expande sinônimos — "ticket" encontra
+"chamado", "password" encontra "senha". O ranking usa `ts_rank_cd` sobre uma
+coluna `tsvector` gerada com peso por campo: título (A) pesa mais que
+palavra-chave (B), que pesa mais que categoria/área (C) e resumo (D).
+`lib/search.ts` cuida só do que é apresentação: normalizar, montar o `tsquery`
+e destacar o trecho.
+
+Os dois índices têm papéis distintos: o full-text cobre tudo, inclusive o corpo
+do artigo; o trigrama cobre só título, palavras-chave e resumo, e serve de plano
+B para erro de digitação. Comparar trigrama contra o texto inteiro produzia
+casamento atravessando fronteira de palavra ("senha" achava um roteiro que não
+fala de senha, 0.67 de similaridade contra 0.33 no campo enxuto).
+
+Outros dois detalhes valem registro, porque não são óbvios:
+
+- As duas condições (full-text e trigrama) entram como CTEs separadas. Num
+  único `OR`, o planner abandona os índices GIN e varre a tabela: medido em 20
+  mil linhas, 221 ms contra 3,4 ms.
+- Os índices GIN são **parciais** (`WHERE status = 'publicado'`). Como o
+  status casa com quase toda a tabela, o índice completo era descartado.
+
+### Persistência
+
+Oito tabelas: `users`, `articles`, `favorites`, `history`, `recent_searches` e
+as três de eventos (`search_events`, `result_clicks`, `article_feedback`).
+Favoritos e histórico são tabelas de ligação com chave estrangeira e
+`ON DELETE CASCADE`; o corpo do artigo (passos, requisitos, FAQ) fica em
+`jsonb`. O DDL vive em `lib/schema.ts` e roda a cada boot, sempre idempotente.
+
+## Conteúdo
+
 O acervo vem de **ASSUNTOS PROMPT ATENDIMENTO**, o catálogo de roteiros da
 central. Cada assunto do documento virou um artigo, com este mapeamento:
 

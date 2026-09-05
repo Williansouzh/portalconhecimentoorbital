@@ -70,7 +70,7 @@ async function seed() {
        ON CONFLICT (id) DO NOTHING`,
       [
         a.id,
-        `${a.codigo} · ${a.title}`,
+        a.title,
         a.cat,
         a.dept,
         a.type,

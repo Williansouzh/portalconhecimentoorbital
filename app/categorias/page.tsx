@@ -23,7 +23,7 @@ export default async function CategoriesPage() {
           {categories.map((c) => (
             <Link
               key={c.slug}
-              href={`/resultados?q=${encodeURIComponent(c.label)}`}
+              href={`/resultados?filter=${encodeURIComponent(`cat|${c.label}`)}`}
               className="card card-lift"
               style={{ display: "block", textAlign: "left", padding: 22, color: "inherit" }}
             >

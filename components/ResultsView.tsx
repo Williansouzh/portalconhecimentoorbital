@@ -48,17 +48,21 @@ const POPULAR = ["redefinir senha", "férias", "reembolso", "trabalho remoto", "
 export default function ResultsView() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
-  // Keying on q remounts the panel (fresh sort/filters/view state) instead
-  // of reconciling it via a setState-in-effect reset.
-  return <ResultsPanel key={q} q={q} />;
+  // Filtros também chegam pela URL: é assim que "Recargas" na tela de
+  // categorias abre a listagem daquela categoria, sem depender de a busca
+  // textual casar com o nome dela.
+  const filtrosDaUrl = searchParams.getAll("filter");
+  // A chave remonta o painel (sort/filtros/visualização limpos) em vez de
+  // reconciliar por setState dentro de efeito.
+  return <ResultsPanel key={`${q}|${filtrosDaUrl.join(",")}`} q={q} filtrosIniciais={filtrosDaUrl} />;
 }
 
-function ResultsPanel({ q }: { q: string }) {
+function ResultsPanel({ q, filtrosIniciais }: { q: string; filtrosIniciais: string[] }) {
   const router = useRouter();
   const { showToast } = useUI();
 
   const [sort, setSort] = useState("relevancia");
-  const [filters, setFilters] = useState<string[]>([]);
+  const [filters, setFilters] = useState<string[]>(filtrosIniciais);
   const [view, setView] = useState<"list" | "cards">("list");
   const [data, setData] = useState<SearchResponse | null>(null);
 
@@ -121,6 +125,13 @@ function ResultsPanel({ q }: { q: string }) {
     );
   }
 
+  const categoriasAtivas = filters.filter((f) => f.startsWith("cat|")).map((f) => f.split("|")[1]);
+  const titulo = q
+    ? `Resultados para \u201c${q}\u201d`
+    : categoriasAtivas.length > 0
+      ? categoriasAtivas.join(" e ")
+      : "Todo o acervo";
+
   const gridStyle =
     view === "cards"
       ? { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14 }
@@ -132,15 +143,24 @@ function ResultsPanel({ q }: { q: string }) {
         <nav aria-label="Trilha" className="trail">
           <Link href="/">Início</Link>
           <span aria-hidden="true">›</span>
-          <span>Resultados da pesquisa</span>
+          {!q && categoriasAtivas.length > 0 ? (
+            <>
+              <Link href="/categorias">Categorias</Link>
+              <span aria-hidden="true">›</span>
+              <span>{categoriasAtivas.join(" e ")}</span>
+            </>
+          ) : (
+            <span>{q ? "Resultados da pesquisa" : "Acervo"}</span>
+          )}
         </nav>
 
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 18 }}>
           <div>
-            <h1 style={{ margin: "0 0 6px", font: "600 27px/1.2 var(--font-head)" }}>Resultados para &ldquo;{q}&rdquo;</h1>
+            <h1 style={{ margin: "0 0 6px", font: "600 27px/1.2 var(--font-head)" }}>{titulo}</h1>
             <p style={{ margin: 0, font: "400 14px/1 var(--font-body)", color: "var(--text2)" }}>
-              {data.resultCount} conteúdos encontrados em {(data.searchTimeMs / 1000).toFixed(2).replace(".", ",")} s · ordenados
-              por {SORT_LABEL[sort]}
+              {data.resultCount} {data.resultCount === 1 ? "conteúdo" : "conteúdos"}
+              {q ? ` encontrados em ${(data.searchTimeMs / 1000).toFixed(2).replace(".", ",")} s` : ""} · ordenados por{" "}
+              {SORT_LABEL[sort]}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

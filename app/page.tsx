@@ -54,7 +54,7 @@ export default async function HomePage() {
           {homeCategories.map((c) => (
             <Link
               key={c.slug}
-              href="/categorias"
+              href={`/resultados?filter=${encodeURIComponent(`cat|${c.label}`)}`}
               className="card card-lift"
               style={{ display: "flex", alignItems: "center", gap: 14, padding: 18, textAlign: "left", color: "inherit" }}
             >

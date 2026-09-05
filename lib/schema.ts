@@ -66,14 +66,16 @@ ALTER TABLE articles ADD COLUMN IF NOT EXISTS next_review date;
 -- Classificação do chamado: o caminho que o atendente registra no sistema.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS classification text;
 
+-- A barra vira espaço antes de indexar: o Postgres trata "VT/EXPRESSO" como
+-- um token único, o que deixava "expresso" sem casar naquele trecho.
 -- Índice de busca com peso por campo: título pesa mais que palavra-chave,
 -- que pesa mais que categoria/área, que pesa mais que o resumo.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS search tsvector
   GENERATED ALWAYS AS (
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(title)), 'A') ||
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(imutavel_array_to_string(keywords, ' '))), 'B') ||
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(cat || ' ' || dept || ' ' || coalesce(classification, ''))), 'C') ||
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(snippet || ' ' || coalesce(content, ''))), 'D')
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(replace(title, '/', ' '))), 'A') ||
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(replace(imutavel_array_to_string(keywords, ' '), '/', ' '))), 'B') ||
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(replace(cat || ' ' || dept || ' ' || coalesce(classification, ''), '/', ' '))), 'C') ||
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(replace(snippet || ' ' || coalesce(content, ''), '/', ' '))), 'D')
   ) STORED;
 
 -- Texto achatado e sem acento para a tolerância a erro de digitação. De
