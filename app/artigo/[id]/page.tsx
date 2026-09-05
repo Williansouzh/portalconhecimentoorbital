@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { articleBodies } from "@/lib/data";
-import { findArticle, getFavoriteIds, getRelated, pushHistory } from "@/lib/store";
+import { findArticle, getFavoriteIds, getRelated, incrementViews, pushHistory } from "@/lib/store";
 import { requireSession } from "@/lib/session";
 import ArticleView from "@/components/ArticleView";
 
@@ -17,13 +16,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
   const article = await findArticle(id);
   if (!article) notFound();
 
-  await pushHistory(session.id, article.id);
+  await Promise.all([pushHistory(session.id, article.id), incrementViews(article.id)]);
   const [favs, related] = await Promise.all([getFavoriteIds(session.id), getRelated(article.id)]);
 
   return (
     <ArticleView
       article={article}
-      body={articleBodies[article.id] ?? null}
+      body={null}
       initialFav={favs.has(article.id)}
       related={related.map((a) => ({ id: a.id, title: a.title, cat: a.cat, read: a.read }))}
     />

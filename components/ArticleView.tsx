@@ -229,6 +229,54 @@ export default function ArticleView({
               </div>
             </header>
 
+            {article.classification && (
+              <section
+                aria-label="Classificação do chamado"
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 13,
+                  padding: "15px 17px",
+                  marginBottom: 28,
+                  background: "var(--brand-soft)",
+                  border: "1px solid var(--brand)",
+                  borderRadius: 12,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 24,
+                    height: 24,
+                    flex: "none",
+                    borderRadius: 7,
+                    background: "var(--brand)",
+                    color: "var(--brand-ink)",
+                    display: "grid",
+                    placeItems: "center",
+                    font: "700 13px/1 var(--font-head)",
+                  }}
+                >
+                  ▤
+                </span>
+                <span>
+                  <strong
+                    style={{
+                      display: "block",
+                      marginBottom: 4,
+                      font: "600 11px/1 var(--font-head)",
+                      letterSpacing: ".09em",
+                      textTransform: "uppercase",
+                      color: "var(--brand-strong)",
+                    }}
+                  >
+                    Classificação do chamado
+                  </strong>
+                  <span style={{ font: "600 15px/1.5 var(--font-body)", color: "var(--text)" }}>{article.classification}</span>
+                </span>
+              </section>
+            )}
+
             {body ? (
               <>
                 <section id="sec-antes" style={{ marginBottom: 34, scrollMarginTop: 96 }}>
@@ -541,7 +589,8 @@ function ConteudoEscrito({ texto }: { texto: string }) {
 
 function Linhas({ linhas }: { linhas: string[] }) {
   const passos = linhas.filter((l) => /^\d+[.)]\s/.test(l));
-  const paragrafos = linhas.filter((l) => !/^\d+[.)]\s/.test(l));
+  const itens = linhas.filter((l) => /^[-*]\s/.test(l));
+  const paragrafos = linhas.filter((l) => !/^\d+[.)]\s/.test(l) && !/^[-*]\s/.test(l));
 
   return (
     <>
@@ -550,6 +599,18 @@ function Linhas({ linhas }: { linhas: string[] }) {
           {p}
         </p>
       ))}
+      {itens.length > 0 && (
+        <ul style={{ margin: "0 0 12px", padding: 0, listStyle: "none", display: "grid", gap: 9 }}>
+          {itens.map((item, i) => (
+            <li key={`i${i}`} style={{ display: "flex", gap: 11, font: "400 16px/1.6 var(--font-body)", color: "var(--text2)" }}>
+              <span aria-hidden="true" style={{ color: "var(--brand)", fontWeight: 700 }}>
+                •
+              </span>
+              {item.replace(/^[-*]\s*/, "")}
+            </li>
+          ))}
+        </ul>
+      )}
       {passos.length > 0 && (
         <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 14 }}>
           {passos.map((passo, i) => (

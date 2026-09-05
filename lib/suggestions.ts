@@ -1,4 +1,4 @@
-import { faqs, keywords, systems } from "./data";
+import { termosSugeridos } from "./data";
 import type { SuggestionGroup } from "./types";
 import { normalize } from "./search";
 import { searchArticles } from "./results";
@@ -7,8 +7,7 @@ import { query } from "./db";
 export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[]> {
   if (!q.trim()) return [];
   const groups: SuggestionGroup[] = [];
-  const term = normalize(q);
-  const firstTerm = term.split(/\s+/)[0] ?? "";
+  const termo = normalize(q);
 
   const found = (await searchArticles(q, "relevancia", [])).slice(0, 4);
   if (found.length) {
@@ -27,13 +26,25 @@ export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[
     });
   }
 
-  const kw = keywords.filter((k) => normalize(k).includes(firstTerm)).slice(0, 3);
-  if (kw.length) {
+  // Termos: os mais buscados de verdade; sem histórico, os do acervo. Exige
+  // repetição para um erro de digitação isolado não virar sugestão.
+  const buscados = await query<{ termo: string }>(
+    `SELECT mode() WITHIN GROUP (ORDER BY term) AS termo
+       FROM search_events
+      WHERE results_count > 0 AND normalized LIKE $1 || '%'
+      GROUP BY normalized HAVING count(*) >= 3
+      ORDER BY count(*) DESC LIMIT 3`,
+    [termo]
+  );
+  const termos = buscados.length
+    ? buscados.map((b) => b.termo)
+    : termosSugeridos.filter((k) => normalize(k).includes(termo)).slice(0, 3);
+  if (termos.length) {
     groups.push({
       label: "Palavras-chave",
       kind: "Termo",
       glyph: "⌕",
-      items: kw.map((k) => ({
+      items: termos.map((k) => ({
         id: `kw:${k}`,
         text: k,
         meta: "Termo de busca",
@@ -44,7 +55,6 @@ export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[
     });
   }
 
-  // Categorias que têm algum conteúdo entre os resultados da busca.
   const catsFound = [...new Set(found.map((f) => f.article.cat))].slice(0, 2);
   if (catsFound.length) {
     const counts = await query<{ cat: string; n: number }>(
@@ -63,42 +73,6 @@ export async function buildSuggestionGroups(q: string): Promise<SuggestionGroup[
         href: `/resultados?q=${encodeURIComponent(c)}`,
         kind: "Categoria",
         glyph: "◧",
-      })),
-    });
-  }
-
-  const sys = systems
-    .filter((s) => normalize(s.n).includes(term) || found.some((f) => normalize(f.article.title).includes(normalize(s.n))))
-    .slice(0, 2);
-  if (sys.length) {
-    groups.push({
-      label: "Sistemas",
-      kind: "Sistema",
-      glyph: "◈",
-      items: sys.map((s) => ({
-        id: `sys:${s.n}`,
-        text: s.n,
-        meta: s.d,
-        href: `/resultados?q=${encodeURIComponent(s.n)}`,
-        kind: "Sistema",
-        glyph: "◈",
-      })),
-    });
-  }
-
-  const fq = faqs.filter((f) => normalize(f).includes(firstTerm)).slice(0, 2);
-  if (fq.length) {
-    groups.push({
-      label: "Perguntas frequentes",
-      kind: "FAQ",
-      glyph: "?",
-      items: fq.map((f) => ({
-        id: `faq:${f}`,
-        text: f,
-        meta: "Resposta rápida",
-        href: `/resultados?q=${encodeURIComponent(f)}`,
-        kind: "FAQ",
-        glyph: "?",
       })),
     });
   }

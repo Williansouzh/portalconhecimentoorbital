@@ -51,6 +51,10 @@ página do artigo no mesmo visual dos passos estruturados.
 No painel, cada card do fluxo abre o artigo no editor, e o botão "Criar artigo"
 de uma lacuna já leva o termo buscado para o título e as palavras-chave.
 
+Categorias e filtros são derivados do acervo: aparecem as que existem, com a
+contagem real, e um filtro só é exibido quando tem mais de uma opção — com um
+único tipo de conteúdo cadastrado, filtrar por tipo não separa nada.
+
 ## Métricas
 
 O painel de gestão lê agregações do banco, não números fixos. Cada busca grava
@@ -63,9 +67,9 @@ linhas em `article_feedback`, e o fluxo editorial é `count(*)` por `status`.
 Quando não há dado no período, o painel diz isso em vez de mostrar zero
 disfarçado de métrica.
 
-Uma instalação nova é semeada com uso sintético dos últimos 60 dias (buscas,
-cliques e avaliações) para o painel não abrir vazio — dado de demonstração,
-como os artigos semente.
+Uma instalação nova começa sem eventos: o painel abre dizendo que ainda não há
+dado e vai se preenchendo conforme o portal é usado. Nenhum número ali é
+inventado.
 
 ## Autenticação
 
@@ -140,7 +144,13 @@ palavra-chave (B), que pesa mais que categoria/área (C) e resumo (D).
 `lib/search.ts` cuida só do que é apresentação: normalizar, montar o `tsquery`
 e destacar o trecho.
 
-Dois detalhes valem registro, porque não são óbvios:
+Os dois índices têm papéis distintos: o full-text cobre tudo, inclusive o corpo
+do artigo; o trigrama cobre só título, palavras-chave e resumo, e serve de plano
+B para erro de digitação. Comparar trigrama contra o texto inteiro produzia
+casamento atravessando fronteira de palavra ("senha" achava um roteiro que não
+fala de senha, 0.67 de similaridade contra 0.33 no campo enxuto).
+
+Outros dois detalhes valem registro, porque não são óbvios:
 
 - As duas condições (full-text e trigrama) entram como CTEs separadas. Num
   único `OR`, o planner abandona os índices GIN e varre a tabela: medido em 20
@@ -158,7 +168,22 @@ Favoritos e histórico são tabelas de ligação com chave estrangeira e
 
 ## Conteúdo
 
-Os 10 artigos de exemplo ficam em `lib/data.ts`, que hoje serve como fonte do
-seed inicial do banco. Só o artigo `senha` tem corpo completo escrito (passo a
-passo, requisitos, FAQ) — os demais mostram apenas o resumo até que as equipes
-responsáveis escrevam o conteúdo.
+O acervo vem de **ASSUNTOS PROMPT ATENDIMENTO**, o catálogo de roteiros da
+central. Cada assunto do documento virou um artigo, com este mapeamento:
+
+| No documento | No portal |
+| --- | --- |
+| Seção (`RECARGAS`) | categoria |
+| Código (`RG-01`) | id do artigo e primeira palavra-chave |
+| Título | título |
+| "Cliente entra em contato…" | resumo + seção **Situação** |
+| Campos a preencher (`CPF:`, `Valor:`) | seção **Dados a coletar** |
+| "Orientado de que…" | seção **Orientação** |
+| `INF - COMPRADOR - VT/EXPRESSO - …` | campo próprio, em destaque no topo do artigo |
+
+A classificação ganhou campo próprio porque é o que o atendente copia para o
+chamado — fica visível sem precisar rolar, e entra no índice de busca.
+
+Para acrescentar outra seção do catálogo, basta estender `seedArticles` em
+`lib/data.ts` (ou criar pelo editor, que grava direto no banco).
+

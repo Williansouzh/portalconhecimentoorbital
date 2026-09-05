@@ -1,322 +1,233 @@
-import type { Article, ArticleBody, Category } from "./types";
+import type { Category } from "./types";
 
-export const articles: Article[] = [
-  {
-    id: "senha",
-    title: "Como redefinir a senha corporativa",
-    cat: "Tecnologia",
-    dept: "TI · Suporte",
-    type: "Tutorial",
-    read: "2 min",
-    views: "12.480",
-    updated: "12 ago 2026",
-    updatedISO: "2026-08-12",
-    verified: true,
-    rel: 98,
-    kw: ["senha", "redefinir", "acesso", "login", "portal riocard", "password"],
-    snippet:
-      "Acesse portal.riocard.com.br/senha, informe sua matrícula e clique em Esqueci minha senha. Você recebe um link de redefinição no e-mail corporativo em até 2 minutos.",
-    path: "Início · Tecnologia · Acessos e senhas",
-    status: "publicado",
-  },
-  {
-    id: "ferias",
-    title: "Como solicitar férias",
-    cat: "Recursos Humanos",
-    dept: "RH · Pessoas",
-    type: "Procedimento",
-    read: "3 min",
-    views: "9.310",
-    updated: "28 jul 2026",
-    updatedISO: "2026-07-28",
-    verified: true,
-    rel: 41,
-    kw: ["férias", "descanso", "solicitação", "afastamento"],
-    snippet:
-      "A solicitação é feita pelo autoatendimento no RioCard Gente, com antecedência mínima de 30 dias e aprovação da liderança direta.",
-    path: "Início · Recursos Humanos · Jornada e férias",
-    status: "publicado",
-  },
-  {
-    id: "reembolso",
-    title: "Procedimento para reembolso de despesas",
-    cat: "Financeiro",
-    dept: "Financeiro · Contas a pagar",
-    type: "Procedimento",
-    read: "4 min",
-    views: "7.120",
-    updated: "05 ago 2026",
-    updatedISO: "2026-08-05",
-    verified: true,
-    rel: 33,
-    kw: ["reembolso", "despesa", "nota fiscal", "ressarcimento"],
-    snippet:
-      "Envie a nota fiscal em PDF pelo formulário de despesas até o dia 25. Reembolsos aprovados entram na folha do mês seguinte.",
-    path: "Início · Financeiro · Despesas",
-    status: "publicado",
-  },
-  {
-    id: "chamados",
-    title: "Como acessar o sistema de chamados",
-    cat: "Sistemas",
-    dept: "TI · Suporte",
-    type: "Tutorial",
-    read: "2 min",
-    views: "6.480",
-    updated: "19 ago 2026",
-    updatedISO: "2026-08-19",
-    verified: true,
-    rel: 52,
-    kw: ["chamado", "ticket", "suporte", "helpdesk", "senha"],
-    snippet:
-      "O sistema de chamados usa o mesmo login e senha do portal. Acesse chamados.riocard.com.br e escolha a fila do seu assunto.",
-    path: "Início · Sistemas · Chamados",
-    status: "publicado",
-  },
-  {
-    id: "remoto",
-    title: "Política de trabalho remoto",
-    cat: "Políticas internas",
-    dept: "RH · Pessoas",
-    type: "Política",
-    read: "5 min",
-    views: "5.940",
-    updated: "14 jun 2026",
-    updatedISO: "2026-06-14",
-    verified: true,
-    rel: 22,
-    kw: ["remoto", "home office", "teletrabalho", "híbrido"],
-    snippet:
-      "O modelo híbrido prevê até dois dias remotos por semana, combinados com a liderança e registrados no RioCard Gente.",
-    path: "Início · Políticas internas · Jornada",
-    status: "publicado",
-  },
-  {
-    id: "email",
-    title: "Configuração inicial do e-mail corporativo",
-    cat: "Tecnologia",
-    dept: "TI · Infraestrutura",
-    type: "Tutorial",
-    read: "3 min",
-    views: "4.870",
-    updated: "02 ago 2026",
-    updatedISO: "2026-08-02",
-    verified: true,
-    rel: 64,
-    kw: ["e-mail", "outlook", "configuração", "senha", "acesso"],
-    snippet:
-      "No primeiro acesso use a senha provisória enviada pelo RH e defina uma senha definitiva. Depois ative o aplicativo autenticador.",
-    path: "Início · Tecnologia · E-mail e comunicação",
-    status: "publicado",
-  },
-  {
-    id: "sap",
-    title: "Desbloqueio de senha do SAP",
-    cat: "Sistemas",
-    dept: "TI · Sistemas corporativos",
-    type: "Solução de problema",
-    read: "2 min",
-    views: "4.210",
-    updated: "11 fev 2026",
-    updatedISO: "2026-02-11",
-    verified: false,
-    outdated: true,
-    rel: 87,
-    kw: ["sap", "senha", "bloqueio", "desbloqueio", "acesso"],
-    snippet:
-      "Três tentativas incorretas bloqueiam o usuário no SAP. O desbloqueio é feito pela transação SU01 pela equipe de sistemas.",
-    path: "Início · Sistemas · SAP",
-    status: "publicado",
-  },
-  {
-    id: "2fa",
-    title: "Autenticação em dois fatores no portal RioCard",
-    cat: "Segurança",
-    dept: "Segurança da informação",
-    type: "Tutorial",
-    read: "3 min",
-    views: "3.760",
-    updated: "21 ago 2026",
-    updatedISO: "2026-08-21",
-    verified: true,
-    rel: 76,
-    kw: ["dois fatores", "2fa", "senha", "autenticador", "segurança"],
-    snippet:
-      "Depois de redefinir a senha, cadastre o segundo fator no aplicativo autenticador. Ele é exigido a cada 30 dias.",
-    path: "Início · Segurança · Autenticação",
-    status: "publicado",
-  },
-  {
-    id: "vt",
-    title: "Segunda via do cartão de vale-transporte",
-    cat: "Operações",
-    dept: "Operações · Benefícios",
-    type: "Procedimento",
-    read: "3 min",
-    views: "3.104",
-    updated: "30 jul 2026",
-    updatedISO: "2026-07-30",
-    verified: true,
-    rel: 12,
-    kw: ["vale-transporte", "cartão", "segunda via", "benefício"],
-    snippet:
-      "Registre a perda no formulário de benefícios. A segunda via fica pronta em até 5 dias úteis na sua unidade.",
-    path: "Início · Operações · Benefícios",
-    status: "publicado",
-  },
-  {
-    id: "novo",
-    title: "Abertura de acesso para novo colaborador",
-    cat: "Tecnologia",
-    dept: "TI · Suporte",
-    type: "Procedimento",
-    read: "4 min",
-    views: "2.880",
-    updated: "08 ago 2026",
-    updatedISO: "2026-08-08",
-    verified: true,
-    rel: 48,
-    kw: ["acesso", "novo colaborador", "onboarding", "login", "senha"],
-    snippet:
-      "A liderança abre o pedido com 3 dias de antecedência. O acesso chega com senha provisória que deve ser trocada no primeiro login.",
-    path: "Início · Tecnologia · Acessos e senhas",
-    status: "publicado",
-  },
-];
-
-export const keywords = [
-  "redefinir senha",
-  "senha expirada",
-  "senha do SAP",
-  "senha da rede wifi",
-  "política de senhas",
-];
-
-export const systems = [
-  { n: "Portal RioCard", d: "Acesso único · 12 conteúdos" },
-  { n: "SAP", d: "Sistemas corporativos · 24 conteúdos" },
-  { n: "RioCard Gente", d: "RH · 31 conteúdos" },
-];
-
-export const faqs = [
-  "Minha senha expirou, o que devo fazer?",
-  "Quantos caracteres a senha precisa ter?",
-  "Posso reaproveitar uma senha antiga?",
-];
-
-export const synonyms: Record<string, string[]> = {
-  senha: ["password", "credencial", "login", "acesso"],
-  ferias: ["descanso", "afastamento"],
-  reembolso: ["despesa", "ressarcimento", "nota"],
-  chamado: ["ticket", "suporte", "helpdesk"],
-  remoto: ["home office", "teletrabalho", "hibrido"],
-  email: ["outlook", "correio"],
+/**
+ * Conteúdo real do portal, transcrito de "ASSUNTOS PROMPT ATENDIMENTO".
+ * Cada item é um roteiro de atendimento: a situação relatada pelo cliente, os
+ * dados a coletar, a orientação dada e a classificação do chamado.
+ */
+export type SeedArticle = {
+  id: string;
+  codigo: string;
+  title: string;
+  cat: string;
+  dept: string;
+  type: string;
+  summary: string;
+  content: string;
+  classification: string;
+  keywords: string[];
 };
 
-export const categories: Category[] = [
+export const seedArticles: SeedArticle[] = [
   {
-    slug: "recursos-humanos",
-    label: "Recursos Humanos",
-    count: 64,
-    description: "Férias, folha, benefícios, jornada e desenvolvimento.",
-    icon: "people",
+    id: "rg-01",
+    codigo: "RG-01",
+    title: "Cancelamento de recargas agendadas (app)",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Cliente quer cancelar um agendamento de recarga feito pelo app. Se não conseguir cancelar sozinho, pode pedir auxílio com o app em loja.",
+    content: `## Situação
+Cliente entra em contato informando que fez agendamento de recarga mas gostaria de cancelar, como foram recargas via app caso o mesmo não consiga cancelar por conta própria pode pedir auxílio com o app em loja.`,
+    classification: "INF - COMPRADOR - VT/EXPRESSO - RECARGA MAIS",
+    keywords: ["rg-01", "cancelamento", "recarga agendada", "agendamento", "app", "recarga mais"],
   },
   {
-    slug: "tecnologia",
-    label: "Tecnologia",
-    count: 86,
-    description: "Acessos, senhas, e-mail, equipamentos e suporte.",
-    icon: "laptop",
+    id: "rg-02",
+    codigo: "RG-02",
+    title: "Pedido de entrega (recarga) — sem taxa de entrega e sem cartão",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Cliente pede informações de um pedido, mas o pedido consta como recarga. Todo o valor vai para a bolsa de crédito do comprador.",
+    content: `## Situação
+Cliente entra em contato solicitando informações de pedido, porém o pedido consta como recarga.
+
+## Dados a coletar
+- N° do pedido
+- Valor de taxa de entrega
+- Quantidade de cartões gerados
+- Valor de carga
+
+## Orientação
+Orientado de que todo o valor de recarga vai para a bolsa de crédito do comprador.`,
+    classification: "INF - COMPRADOR - VT/EXPRESSO - RECARGA MAIS",
+    keywords: ["rg-02", "pedido de entrega", "taxa de entrega", "bolsa de crédito", "recarga", "comprador"],
   },
   {
-    slug: "financeiro",
-    label: "Financeiro",
-    count: 41,
-    description: "Reembolsos, adiantamentos, notas fiscais e compras.",
+    id: "rg-03",
+    codigo: "RG-03",
+    title: "Bilhete unitário retido em ATM",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Cliente comprou bilhete unitário no ATM e não recebeu. Abre-se chamado com os dados da compra e os dados bancários para ressarcimento.",
+    content: `## Situação
+Cliente entra em contato informando que fez a compra de um bilhete unitário e não o recebeu, orientado de que será realizado a abertura de um chamado.
+
+## Dados a coletar
+- Descrição da ocorrência: COMPRA DE BILHETE UNITÁRIO
+- Nome completo
+- CPF
+- Data da compra
+- Número do terminal
+- Valor: 7,90
+- Forma de pagamento
+- N° do cartão
+
+## Dados bancários
+- Banco
+- Agência
+- Conta
+- Operação
+
+## Orientação
+Caso tenha sido via PIX: anexar o comprovante da transação. Caso tenha sido por débito ou crédito: informar os 6 primeiros e os 4 últimos dígitos do cartão utilizado.
+E-mail para anexar comprovantes: riocardresponde@riocardmais.com.br`,
+    classification:
+      "RECLAMAÇÃO - COMPRADOR - EXPRESSO - RECARGA - ATM - CARTÃO RETIDO PELO ATM - COM/SEM NÚMERO DE TERMINAL",
+    keywords: ["rg-03", "bilhete unitário", "atm", "cartão retido", "terminal", "ressarcimento", "comprovante"],
+  },
+  {
+    id: "rg-04",
+    codigo: "RG-04",
+    title: "Recarga não realizada — sem n° de pedido (app)",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Valor debitado e recarga não realizada, mas o cliente não tem o n° do pedido. Sem esse número não é possível dar continuidade ao atendimento.",
+    content: `## Situação
+Cliente entra em contato informando que realizou uma recarga, o valor foi debitado e a recarga não foi realizada, orientada de que sem o n° do pedido não conseguimos dar continuidade no atendimento.
+
+## Orientação
+Orientada a retornar com o n° do pedido e caso não consiga acessar o app, se dirigir a uma loja para auxílio.`,
+    classification: "INF - USUÁRIO - VT/EXPRESSO - RECARGA - CONSULTA A RECARGA",
+    keywords: ["rg-04", "recarga não realizada", "sem número de pedido", "valor debitado", "app", "consulta a recarga"],
+  },
+  {
+    id: "rg-05",
+    codigo: "RG-05",
+    title: "Recarga pendente com abertura de ressarcimento anterior (Carga Excedente - VOLTA)",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Recarga não efetuada e já existe ressarcimento aberto. Como a recarga está pendente, é provável que o protocolo anterior seja encerrado.",
+    content: `## Situação
+Cliente entra em contato informando que realizou uma recarga de cartão mas a recarga não foi efetuada. O cliente informa que foi aberto um ressarcimento anteriormente para esta recarga.
+
+## Dados a coletar
+- Pedido
+- Em sistema consta recarga
+- Protocolo
+
+## Orientação
+Orientado de que pode desconsiderar esse chamado, pois como a recarga está pendente, é provável que o protocolo em questão será encerrado.
+Mesmo com n° de recargas diferentes consta "Carga Excedente - VOLTA".`,
+    classification: "INF - USUÁRIO - VT/EXPRESSO - RECARGA - CONSULTA A RECARGA",
+    keywords: ["rg-05", "recarga pendente", "ressarcimento", "protocolo", "carga excedente", "volta"],
+  },
+  {
+    id: "rg-06",
+    codigo: "RG-06",
+    title: "Recarga pendente",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Pagamento feito e recarga não efetuada. A recarga pendente só cai quando o saldo da recarga anterior acaba; se não validar, a loja RioCard resolve.",
+    content: `## Situação
+Cliente entra em contato informando que realizou um pagamento de recarga porém a recarga não foi efetuada.
+
+## Dados a coletar
+- Valor
+- Data de pagamento
+- Consta recarga pendente
+
+## Orientação
+Orientado de que a recarga consta "pendente" e caso o mesmo não consiga validar recarga em linhas, posto de validação nem pelo app, o mesmo pode se dirigir a uma loja da RioCard para validação.
+Lembrando que a recarga pendente só cai quando o saldo da recarga anterior acaba.`,
+    classification: "INF - USUÁRIO - VT/EXPRESSO - RECARGA - CONSULTA A RECARGA",
+    keywords: ["rg-06", "recarga pendente", "validação", "posto de validação", "saldo anterior", "loja riocard"],
+  },
+  {
+    id: "rg-07",
+    codigo: "RG-07",
+    title: "Recarga não pode ser realizada — trabalha em duas empresas",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "O site do comprador só recarrega cartões vinculados a ele. A empresa não vinculada deve usar o Recarga Mais.",
+    content: `## Situação
+Cliente entra em contato ignorando que trabalha em duas empresas, o cartão está vinculado a uma empresa mas a que não está vinculada não consegue realizar recarga.
+
+## Orientação
+Orientado de que as recargas através do site do comprador são realizadas apenas para cartões vinculados ao comprador, logo foi recomendado de que a empresa que não está vinculada, realize as recargas através do Recarga Mais.`,
+    classification: "INF - USUÁRIO - VT - RECARGA MAIS",
+    keywords: ["rg-07", "duas empresas", "cartão vinculado", "site do comprador", "recarga mais", "vale-transporte"],
+  },
+  {
+    id: "rg-08",
+    codigo: "RG-08",
+    title: "Recarga feita para cartão errado",
+    cat: "Recargas",
+    dept: "Atendimento",
+    type: "Roteiro de atendimento",
+    summary:
+      "Recarga caiu em cartão diferente do informado. O cliente pode verificar as informações em loja RioCard com RG e CPF.",
+    content: `## Situação
+Cliente entra em contato informando que realizou recarga, em sistema mostra que foi para o cartão errado.
+
+## Dados a coletar
+- Cartão
+- Recarga
+
+## Orientação
+Orientada de que pode verificar informações na loja da RioCard com RG e CPF.`,
+    classification: "INF - USUÁRIO - VT/EXPRESSO - RECARGA - CONSULTA A RECARGA",
+    keywords: ["rg-08", "cartão errado", "recarga", "loja riocard", "rg e cpf"],
+  },
+];
+
+/** Metadados de apresentação das categorias; a contagem vem do banco. */
+export const categoryMeta: Record<string, Omit<Category, "count">> = {
+  Recargas: {
+    slug: "recargas",
+    label: "Recargas",
+    description: "Agendamento, pendências, cartão errado e recarga por app, ATM e Recarga Mais.",
     icon: "bars",
   },
-  {
-    slug: "comercial",
-    label: "Comercial",
-    count: 37,
-    description: "Atendimento, contratos, tabelas e argumentos de venda.",
-    icon: "triangle",
-  },
-  {
-    slug: "operacoes",
-    label: "Operações",
-    count: 72,
-    description: "Rotinas de campo, bilhetagem, cartões e unidades.",
-    icon: "gear",
-  },
-  {
-    slug: "seguranca",
-    label: "Segurança",
-    count: 29,
-    description: "Autenticação, dados pessoais, incidentes e boas práticas.",
-    icon: "shield",
-  },
-  {
-    slug: "sistemas",
-    label: "Sistemas",
-    count: 45,
-    description: "SAP, chamados, RioCard Gente e integrações.",
-    icon: "grid",
-  },
-  {
-    slug: "politicas-internas",
-    label: "Políticas internas",
-    count: 23,
-    description: "Código de conduta, trabalho remoto, viagens e compliance.",
-    icon: "doc",
-  },
-];
-
-// Only "senha" has a fully authored long-form body in this delivery — the
-// other seed articles render their summary only until content owners write
-// the rest (see the admin backlog of content gaps).
-export const articleBodies: Record<string, ArticleBody> = {
-  senha: {
-    intro:
-      "Você precisa da sua matrícula (6 dígitos, disponível no contracheque) e de acesso ao e-mail corporativo ou ao número de celular cadastrado no RioCard Gente. O procedimento leva cerca de dois minutos e pode ser feito de qualquer dispositivo.",
-    calloutText: "Se você nunca acessou o portal, use o procedimento de primeiro acesso em vez deste.",
-    calloutHref: "/resultados?q=primeiro%20acesso",
-    steps: [
-      {
-        title: "Abra o portal de acessos",
-        text: "Acesse portal.riocard.com.br/senha pelo navegador. Não é necessário estar na rede interna.",
-      },
-      {
-        title: "Clique em “Esqueci minha senha”",
-        text: "Informe a matrícula e escolha receber o código por e-mail corporativo ou SMS.",
-      },
-      {
-        title: "Use o código de 6 dígitos",
-        text: "O código chega em até 2 minutos e expira em 15 minutos. Se não chegar, confira a caixa de spam.",
-      },
-      {
-        title: "Defina a nova senha",
-        text: "A troca vale para o portal, o e-mail, o SAP e o sistema de chamados. Pode levar até 10 minutos para propagar.",
-      },
-    ],
-    requirements: [
-      { ok: true, text: "Pelo menos 10 caracteres" },
-      { ok: true, text: "Uma letra maiúscula, uma minúscula e um número" },
-      { ok: true, text: "Diferente das 5 últimas senhas usadas" },
-      { ok: false, text: "Sem matrícula, nome próprio ou datas de nascimento" },
-    ],
-    troubleshoot:
-      "Três tentativas incorretas bloqueiam o usuário por 15 minutos. Depois desse intervalo, tente novamente. Se o bloqueio persistir, abra um chamado na fila Acessos e senhas — o atendimento é feito em até 4 horas úteis.",
-    faq: [
-      { q: "Minha senha expirou. É o mesmo procedimento?", a: "Sim. A senha expira a cada 90 dias e o fluxo de redefinição é idêntico." },
-      { q: "A troca vale também para o SAP?", a: "Sim, o SAP usa o mesmo diretório de acesso. A propagação pode levar até 10 minutos." },
-      { q: "Não recebo o código por e-mail nem SMS.", a: "Verifique com o RH se o celular cadastrado está atualizado no RioCard Gente e tente de novo." },
-    ],
-  },
 };
 
-export const homeCategorySlugs = ["tecnologia", "recursos-humanos", "financeiro", "seguranca"];
+export const categoriaPadrao: Omit<Category, "count" | "label" | "slug"> = {
+  description: "Conteúdos desta área.",
+  icon: "doc",
+};
 
-export function findArticle(id: string): Article | undefined {
-  return articles.find((a) => a.id === id);
-}
+/** Termos sugeridos enquanto não há histórico real de busca. */
+export const termosSugeridos = [
+  "recarga pendente",
+  "cancelar recarga agendada",
+  "bilhete unitário",
+  "recarga não realizada",
+  "cartão errado",
+  "recarga mais",
+];
+
+/** Equivalências do vocabulário de atendimento, expandidas na busca. */
+export const synonyms: Record<string, string[]> = {
+  recarga: ["carga", "credito", "recarregar"],
+  cancelamento: ["cancelar", "cancelada"],
+  app: ["aplicativo", "celular"],
+  atm: ["terminal", "maquina", "totem"],
+  bilhete: ["passagem", "unitario"],
+  ressarcimento: ["reembolso", "devolucao", "estorno"],
+  pendente: ["pendencia", "nao efetuada", "nao realizada"],
+  comprador: ["empresa", "rh"],
+  cartao: ["cartoes"],
+};

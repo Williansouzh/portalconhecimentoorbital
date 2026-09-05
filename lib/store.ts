@@ -97,6 +97,11 @@ export async function getHistoryArticles(userId: string): Promise<Article[]> {
   return rows.map(rowToArticle);
 }
 
+/** Uma abertura de artigo conta como visualização do acervo. */
+export async function incrementViews(articleId: string): Promise<void> {
+  await query("UPDATE articles SET views = views + 1 WHERE id = $1", [articleId]);
+}
+
 export async function pushHistory(userId: string, articleId: string): Promise<void> {
   await query(
     `INSERT INTO history (user_id, article_id) VALUES ($1, $2)

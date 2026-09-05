@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { filterCounts, filterGroupsMeta, searchArticles, toSearchResult, type SortKey } from "@/lib/results";
+import { filterGroups, searchArticles, toSearchResult, type SortKey } from "@/lib/results";
 import { getFavoriteIds, addSearch } from "@/lib/store";
 import { getSession } from "@/lib/session";
 import { recordSearch } from "@/lib/events";
@@ -13,28 +13,25 @@ export async function GET(req: NextRequest) {
   const sort = (searchParams.get("sort") as SortKey) || "relevancia";
   const filters = searchParams.getAll("filter");
 
-  const [favs, found, counts] = await Promise.all([
+  const [favs, found, grupos] = await Promise.all([
     getFavoriteIds(session.id),
     searchArticles(q, sort, filters),
-    filterCounts(),
+    filterGroups(),
   ]);
 
   const topScore = found.reduce((max, r) => Math.max(max, r.score), 0);
   const results = found.map(({ article, score }) => toSearchResult(article, q, favs, score, topScore));
   const searchEventId = await recordSearch(session.id, q, results.length);
 
-  const groups = filterGroupsMeta().map((g) => ({
+  const groups = grupos.meta.map((g) => ({
     key: g.key,
     label: g.label,
-    options: g.options.map((opt) => {
-      const [label, value] = Array.isArray(opt) ? opt : [opt, opt];
-      return {
-        label,
-        value,
-        count: g.key === "date" ? null : (counts[g.key]?.[value] ?? 0),
-        on: filters.includes(`${g.key}|${value}`),
-      };
-    }),
+    options: g.options.map(([label, value]) => ({
+      label,
+      value,
+      count: g.key === "date" ? null : (grupos.counts[g.key]?.[value] ?? 0),
+      on: filters.includes(`${g.key}|${value}`),
+    })),
   }));
 
   return NextResponse.json({

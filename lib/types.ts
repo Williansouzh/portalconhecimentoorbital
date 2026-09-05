@@ -16,6 +16,7 @@ export type Article = {
   path: string;
   status: ArticleStatus;
   content?: string;
+  classification?: string;
   nextReview?: string;
 };
 

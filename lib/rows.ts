@@ -18,6 +18,7 @@ export type ArticleRow = {
   status: Article["status"];
   body: ArticleBody | null;
   content: string | null;
+  classification: string | null;
   next_review: Date | string | null;
 };
 
@@ -58,6 +59,7 @@ export function rowToArticle(r: ArticleRow): Article {
     path: r.path,
     status: r.status,
     content: r.content ?? undefined,
+    classification: r.classification ?? undefined,
     nextReview: r.next_review ? toISODate(r.next_review) : undefined,
   };
 }

@@ -63,6 +63,8 @@ CREATE TABLE IF NOT EXISTS articles (
 -- body em jsonb continua servindo aos artigos com passo a passo estruturado.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS content text;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS next_review date;
+-- Classificação do chamado: o caminho que o atendente registra no sistema.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS classification text;
 
 -- Índice de busca com peso por campo: título pesa mais que palavra-chave,
 -- que pesa mais que categoria/área, que pesa mais que o resumo.
@@ -70,11 +72,16 @@ ALTER TABLE articles ADD COLUMN IF NOT EXISTS search tsvector
   GENERATED ALWAYS AS (
     setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(title)), 'A') ||
     setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(imutavel_array_to_string(keywords, ' '))), 'B') ||
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(cat || ' ' || dept)), 'C') ||
-    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(snippet)), 'D')
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(cat || ' ' || dept || ' ' || coalesce(classification, ''))), 'C') ||
+    setweight(to_tsvector('portuguese'::regconfig, imutavel_unaccent(snippet || ' ' || coalesce(content, ''))), 'D')
   ) STORED;
 
--- Texto achatado e sem acento, para a tolerância a erro de digitação.
+-- Texto achatado e sem acento para a tolerância a erro de digitação. De
+-- propósito NÃO inclui o corpo: comparar trigrama contra o texto inteiro
+-- produz casamento atravessando fronteira de palavra (medido: "senha" dava
+-- 0.67 contra o corpo e 0.33 contra estes campos). O corpo continua
+-- pesquisável pelo índice full-text acima, que é o mecanismo certo para ele.
+-- Mudar a expressão de uma coluna gerada exige migração: DROP + ADD.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS searchable text
   GENERATED ALWAYS AS (
     imutavel_unaccent(lower(title || ' ' || imutavel_array_to_string(keywords, ' ') || ' ' || snippet))

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { articleBodies } from "@/lib/data";
 import { findArticle, getFavoriteIds, getRelated, updateArticle } from "@/lib/store";
 import { getSession } from "@/lib/session";
 import { canCurate } from "@/lib/auth";
@@ -16,7 +15,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   return NextResponse.json({
     article: { ...article, snippetText: article.snippet.replace(/<[^>]+>/g, "") },
-    body: articleBodies[article.id] ?? null,
     fav: favs.has(article.id),
     related: related.map((a) => ({ id: a.id, title: a.title, cat: a.cat, read: a.read })),
   });

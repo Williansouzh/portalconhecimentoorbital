@@ -150,18 +150,17 @@ export default async function HomePage() {
       <section className="stack page-wrap" style={{ marginBottom: 44, gridTemplateColumns: "1.4fr 1fr", gap: 22 }}>
         <div>
           <h2 style={{ margin: "0 0 14px", font: "600 15px/1 var(--font-head)", color: "var(--text2)" }}>Continue de onde parou</h2>
+          {continueReading.length === 0 && (
+            <p style={{ margin: 0, font: "400 13.5px/1.5 var(--font-body)", color: "var(--text3)" }}>
+              O que você abrir aparece aqui para retomar depois.
+            </p>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {continueReading.map((c) => (
               <Link key={c.id} href={`/artigo/${c.id}`} className="card card-hover" style={{ padding: 18, display: "block", color: "inherit" }}>
                 <span style={{ display: "block", font: "600 15.5px/1.3 var(--font-body)" }}>{c.title}</span>
-                <span style={{ display: "block", margin: "6px 0 12px", font: "400 13px/1.4 var(--font-body)", color: "var(--text3)" }}>
-                  Parou em &ldquo;{c.section}&rdquo;
-                </span>
-                <span style={{ display: "block", height: 6, borderRadius: 3, background: "var(--surface3)", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${c.pct}%`, background: "var(--brand)", borderRadius: 3 }} />
-                </span>
-                <span style={{ display: "block", marginTop: 8, font: "500 12px/1 var(--font-body)", color: "var(--brand-strong)" }}>
-                  {c.pct}% lido
+                <span style={{ display: "block", marginTop: 6, font: "400 13px/1.4 var(--font-body)", color: "var(--text3)" }}>
+                  {c.meta}
                 </span>
               </Link>
             ))}

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { categories } from "@/lib/data";
+import { getCategories } from "@/lib/categories";
 import { CategoryGlyphIcon } from "@/components/Icons";
 
 export const metadata = { title: "Categorias — Portal do Conhecimento" };
 
-export default function CategoriesPage() {
+export default async function CategoriesPage() {
+  const categories = await getCategories();
   const total = categories.reduce((n, c) => n + c.count, 0);
 
   return (
@@ -12,8 +13,11 @@ export default function CategoriesPage() {
       <div className="page-wrap">
         <h1 style={{ margin: "0 0 8px", font: "600 34px/1.15 var(--font-head)", letterSpacing: "-.015em" }}>Categorias</h1>
         <p style={{ margin: "0 0 28px", maxWidth: 560, font: "400 16.5px/1.6 var(--font-body)", color: "var(--text2)" }}>
-          Se você prefere navegar em vez de pesquisar, comece por aqui. São {categories.length} áreas com {total} conteúdos
-          publicados.
+          {total === 0
+            ? "Ainda não há conteúdo publicado."
+            : `Se você prefere navegar em vez de pesquisar, comece por aqui. ${
+                categories.length === 1 ? "1 área" : `${categories.length} áreas`
+              } com ${total} ${total === 1 ? "conteúdo publicado" : "conteúdos publicados"}.`}
         </p>
         <div className="stack" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 16 }}>
           {categories.map((c) => (
@@ -42,7 +46,7 @@ export default function CategoriesPage() {
                 {c.description}
               </span>
               <span style={{ display: "block", font: "600 13px/1 var(--font-body)", color: "var(--brand-strong)" }}>
-                {c.count} conteúdos
+                {c.count} {c.count === 1 ? "conteúdo" : "conteúdos"}
               </span>
             </Link>
           ))}

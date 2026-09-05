@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { categories } from "@/lib/data";
+import { getCategories } from "@/lib/categories";
+import { getSession } from "@/lib/session";
 
 export async function GET() {
-  const total = categories.reduce((n, c) => n + c.count, 0);
-  return NextResponse.json({ categories, total });
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const categories = await getCategories();
+  return NextResponse.json({ categories, total: categories.reduce((n, c) => n + c.count, 0) });
 }

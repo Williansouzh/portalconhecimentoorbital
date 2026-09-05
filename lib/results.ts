@@ -5,21 +5,44 @@ import { buildTsQuery, highlight, normalize } from "./search";
 
 export type SortKey = "relevancia" | "acessados" | "recentes";
 
-const DEPT_OPTIONS = ["TI", "RH", "Financeiro", "Operações", "Segurança"];
 
-const FILTER_GROUPS = [
-  { key: "cat", label: "Categoria", options: ["Tecnologia", "Recursos Humanos", "Sistemas", "Financeiro", "Segurança"] },
-  { key: "dept", label: "Departamento", options: DEPT_OPTIONS },
-  { key: "type", label: "Tipo de conteúdo", options: ["Tutorial", "Procedimento", "Política", "Solução de problema"] },
-  {
-    key: "date",
-    label: "Última atualização",
-    options: [["30 dias", "30d"], ["3 meses", "3m"], ["Este ano", "ano"]] as [string, string][],
-  },
-];
 
-export function filterGroupsMeta() {
-  return FILTER_GROUPS;
+const JANELAS_DATA: [string, string][] = [["30 dias", "30d"], ["3 meses", "3m"], ["Este ano", "ano"]];
+
+export type FilterGroupMeta = { key: string; label: string; options: [string, string][] };
+
+/**
+ * As opções de filtro saem do acervo: só aparece o que existe, com a
+ * contagem real ao lado.
+ */
+export async function filterGroups(): Promise<{ meta: FilterGroupMeta[]; counts: Record<string, Record<string, number>> }> {
+  const rows = await query<{ g: string; v: string; n: number }>(
+    `SELECT 'cat' AS g, cat AS v, count(*)::int AS n FROM articles WHERE status = 'publicado' GROUP BY cat
+     UNION ALL
+     SELECT 'type', type, count(*)::int FROM articles WHERE status = 'publicado' GROUP BY type
+     UNION ALL
+     SELECT 'dept', split_part(dept, ' · ', 1), count(*)::int FROM articles WHERE status = 'publicado'
+      GROUP BY split_part(dept, ' · ', 1)
+     ORDER BY 1, 3 DESC, 2`
+  );
+
+  const counts: Record<string, Record<string, number>> = { cat: {}, type: {}, dept: {} };
+  rows.forEach((r) => {
+    counts[r.g] = counts[r.g] || {};
+    counts[r.g][r.v] = r.n;
+  });
+
+  const opcoes = (g: string): [string, string][] =>
+    Object.keys(counts[g] ?? {}).map((v) => [v, v] as [string, string]);
+
+  const meta: FilterGroupMeta[] = [
+    { key: "cat", label: "Categoria", options: opcoes("cat") },
+    { key: "dept", label: "Área responsável", options: opcoes("dept") },
+    { key: "type", label: "Tipo de conteúdo", options: opcoes("type") },
+    { key: "date", label: "Última atualização", options: JANELAS_DATA },
+  ].filter((g) => g.options.length > 1 || g.key === "date");
+
+  return { meta, counts };
 }
 
 const DATE_WINDOWS: Record<string, string> = {
@@ -88,7 +111,8 @@ export async function searchArticles(
 
   // Full-text e trigrama entram como CTEs separadas de propósito: com as duas
   // condições num único OR o planner abandona os índices GIN e varre a tabela
-  // inteira (medido: 221 ms contra ~3 ms em 20 mil linhas).
+  // inteira (medido: 221 ms contra ~3 ms em 20 mil linhas). O trigrama só é
+  // consultado quando a busca exata não encontra nada.
   const sql = tsq
     ? `WITH ft AS (
          SELECT id, ts_rank_cd(search, to_tsquery('portuguese', ${tsqRef})) * 3 AS score
@@ -99,8 +123,15 @@ export async function searchArticles(
            FROM articles
           WHERE status = 'publicado' AND ${rawRef} <% searchable
        ), hits AS (
+         -- O trigrama entra só como plano B: quando a busca exata acha algo,
+         -- incluí-lo traria casamentos atravessando fronteira de palavra
+         -- ("senha" casando com um texto que não fala de senha).
          SELECT id, max(score) AS score
-           FROM (SELECT * FROM ft UNION ALL SELECT * FROM tg) u
+           FROM (
+             SELECT * FROM ft
+             UNION ALL
+             SELECT * FROM tg WHERE NOT EXISTS (SELECT 1 FROM ft)
+           ) u
           GROUP BY id
        )
        SELECT a.*, h.score
@@ -115,29 +146,6 @@ export async function searchArticles(
 
   const rows = await query<ScoredRow & { score: number }>(sql, params);
   return rows.map((r) => ({ article: rowToArticle(r), score: Number(r.score) || 0 }));
-}
-
-/** Contadores exibidos ao lado de cada filtro, sobre todo o acervo publicado. */
-export async function filterCounts(): Promise<Record<string, Record<string, number>>> {
-  const rows = await query<{ g: string; v: string; n: number }>(
-    `SELECT 'cat' AS g, cat AS v, count(*)::int AS n FROM articles WHERE status = 'publicado' GROUP BY cat
-     UNION ALL
-     SELECT 'type', type, count(*)::int FROM articles WHERE status = 'publicado' GROUP BY type
-     UNION ALL
-     SELECT 'dept', d.value, count(*)::int
-       FROM articles a
-       JOIN (SELECT unnest($1::text[]) AS value) d ON a.dept LIKE d.value || '%'
-      WHERE a.status = 'publicado'
-      GROUP BY d.value`,
-    [DEPT_OPTIONS]
-  );
-
-  const out: Record<string, Record<string, number>> = { cat: {}, type: {}, dept: {} };
-  rows.forEach((r) => {
-    out[r.g] = out[r.g] || {};
-    out[r.g][r.v] = r.n;
-  });
-  return out;
 }
 
 export function toSearchResult(
