@@ -30,6 +30,7 @@ type FilterOption = { label: string; value: string; count: number | null; on: bo
 type FilterGroup = { key: string; label: string; options: FilterOption[] };
 type SearchResponse = {
   q: string;
+  searchEventId: number | null;
   results: SearchResult[];
   resultCount: number;
   searchTimeMs: number;
@@ -85,6 +86,23 @@ function ResultsPanel({ q }: { q: string }) {
         body: JSON.stringify({ id }),
       });
     } catch {}
+  }
+
+  // Clique num resultado é atribuído à busca que o originou — é daí que saem
+  // a taxa de cliques e o tempo até a resposta no painel de gestão.
+  function registerClick(articleId: string) {
+    if (!data?.searchEventId) return;
+    const payload = JSON.stringify({ searchEventId: data.searchEventId, articleId });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/search/click", new Blob([payload], { type: "application/json" }));
+      return;
+    }
+    fetch("/api/search/click", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
   }
 
   const chips = useMemo(() => filters.map((k) => ({ key: k, label: k.split("|")[1] })), [filters]);
@@ -228,6 +246,7 @@ function ResultsPanel({ q }: { q: string }) {
                           </div>
                           <Link
                             href={`/artigo/${r.id}`}
+                            onClick={() => registerClick(r.id)}
                             style={{ display: "block", margin: "0 0 8px", font: "600 19px/1.3 var(--font-head)", color: "var(--text)" }}
                           >
                             {r.pre}

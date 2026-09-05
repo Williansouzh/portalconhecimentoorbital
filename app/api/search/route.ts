@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { filterCounts, filterGroupsMeta, searchArticles, toSearchResult, type SortKey } from "@/lib/results";
 import { getFavoriteIds, addSearch } from "@/lib/store";
 import { getSession } from "@/lib/session";
+import { recordSearch } from "@/lib/events";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
 
   const topScore = found.reduce((max, r) => Math.max(max, r.score), 0);
   const results = found.map(({ article, score }) => toSearchResult(article, q, favs, score, topScore));
+  const searchEventId = await recordSearch(session.id, q, results.length);
 
   const groups = filterGroupsMeta().map((g) => ({
     key: g.key,
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     q,
     sort,
+    searchEventId,
     results,
     resultCount: results.length,
     searchTimeMs: Math.round(q.length * 4 + 62),

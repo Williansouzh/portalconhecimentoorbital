@@ -36,6 +36,22 @@ São dois serviços: o app (imagem multi-stage rodando o build `standalone` do
 Next como usuário não-root) e o Postgres, cujos dados ficam no volume
 `portal-pgdata`. O app só sobe depois que o healthcheck do banco passa.
 
+## Métricas
+
+O painel de gestão lê agregações do banco, não números fixos. Cada busca grava
+um `search_event` (termo, forma normalizada e quantos resultados vieram); abrir
+um resultado grava um `result_click` ligado àquela busca. Dessa ligação saem
+duas coisas: a taxa de cliques por termo e o **tempo médio até a resposta**
+(intervalo entre a busca e o clique). As avaliações do rodapé do artigo viram
+linhas em `article_feedback`, e o fluxo editorial é `count(*)` por `status`.
+
+Quando não há dado no período, o painel diz isso em vez de mostrar zero
+disfarçado de métrica.
+
+Uma instalação nova é semeada com uso sintético dos últimos 60 dias (buscas,
+cliques e avaliações) para o painel não abrir vazio — dado de demonstração,
+como os artigos semente.
+
 ## Autenticação
 
 Sessão por **JWT (HS256) em cookie httpOnly**, assinado com `AUTH_SECRET` —
@@ -91,6 +107,7 @@ ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 | `GET/POST/DELETE /api/history` | Histórico de leitura |
 | `GET/POST/DELETE /api/searches` | Pesquisas recentes |
 | `POST /api/feedback` | Avaliação do artigo e aviso de conteúdo desatualizado |
+| `POST /api/search/click` | Clique num resultado, atribuído à busca que o originou |
 | `GET /api/home`, `GET /api/categories` | Dados agregados da home e categorias |
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | Sessão |
 
@@ -115,7 +132,8 @@ Dois detalhes valem registro, porque não são óbvios:
 
 ### Persistência
 
-Cinco tabelas: `users`, `articles`, `favorites`, `history` e `recent_searches`.
+Oito tabelas: `users`, `articles`, `favorites`, `history`, `recent_searches` e
+as três de eventos (`search_events`, `result_clicks`, `article_feedback`).
 Favoritos e histórico são tabelas de ligação com chave estrangeira e
 `ON DELETE CASCADE`; o corpo do artigo (passos, requisitos, FAQ) fica em
 `jsonb`. O DDL vive em `lib/schema.ts` e roda a cada boot, sempre idempotente.

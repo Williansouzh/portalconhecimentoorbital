@@ -2,6 +2,7 @@ import { Pool, type QueryResultRow } from "pg";
 import { SCHEMA_SQL } from "./schema";
 import { articleBodies, articles as seedArticles } from "./data";
 import { hashPassword } from "./passwords";
+import { normalize } from "./search";
 import type { Role } from "./auth";
 
 // Pool e inicialização vivem no globalThis: server components e route handlers
@@ -54,6 +55,74 @@ const SEED_ANA = {
   hist: ["senha", "remoto", "chamados", "vt", "email"],
   searches: ["redefinir senha", "férias 2026", "reembolso combustível", "sap bloqueado"],
 };
+
+// Conteúdo nos demais estágios do fluxo editorial, para o painel de gestão
+// refletir um acervo em movimento e não só publicados.
+const SEED_EM_FLUXO: { id: string; title: string; cat: string; dept: string; status: string; autor: string; diasAtras: number }[] = [
+  { id: "ponto-app", title: "Ponto eletrônico no app", cat: "Recursos Humanos", dept: "RH · Pessoas", status: "rascunho", autor: "bruno", diasAtras: 4 },
+  { id: "cracha", title: "Troca de crachá", cat: "Operações", dept: "Operações · Benefícios", status: "rascunho", autor: "bruno", diasAtras: 2 },
+  { id: "km", title: "Reembolso de quilometragem", cat: "Financeiro", dept: "Financeiro · Contas a pagar", status: "revisao", autor: "carla", diasAtras: 18 },
+  { id: "odonto", title: "Plano odontológico para dependentes", cat: "Recursos Humanos", dept: "RH · Pessoas", status: "revisao", autor: "bruno", diasAtras: 3 },
+  { id: "viagens", title: "Política de viagens 2026", cat: "Políticas internas", dept: "RH · Pessoas", status: "aprovacao", autor: "carla", diasAtras: 9 },
+];
+
+// Uso sintético dos últimos 60 dias: sem isso o painel de gestão abre zerado
+// numa instalação nova. São dados de demonstração, como os artigos semente.
+const SEED_BUSCAS: { termo: string; artigo: string | null; resultados: number; buscas: number; taxaClique: number }[] = [
+  { termo: "redefinir senha", artigo: "senha", resultados: 6, buscas: 46, taxaClique: 0.94 },
+  { termo: "férias", artigo: "ferias", resultados: 1, buscas: 33, taxaClique: 0.88 },
+  { termo: "reembolso", artigo: "reembolso", resultados: 1, buscas: 25, taxaClique: 0.81 },
+  { termo: "vale-transporte", artigo: "vt", resultados: 1, buscas: 19, taxaClique: 0.62 },
+  { termo: "chamado", artigo: "chamados", resultados: 1, buscas: 17, taxaClique: 0.79 },
+  { termo: "ponto eletrônico app", artigo: null, resultados: 0, buscas: 9, taxaClique: 0 },
+  { termo: "troca de crachá", artigo: null, resultados: 0, buscas: 6, taxaClique: 0 },
+  { termo: "plano odontológico dependente", artigo: null, resultados: 0, buscas: 4, taxaClique: 0 },
+];
+
+async function seedFluxoEditorial() {
+  for (const a of SEED_EM_FLUXO) {
+    await raw(
+      `INSERT INTO articles
+         (id, title, cat, dept, type, read_time, updated_at, snippet, path, status, keywords, author_id, created_at)
+       VALUES ($1,$2,$3,$4,'Procedimento','—', current_date, '', $5, $6, '{}', $7, now() - ($8 || ' days')::interval)
+       ON CONFLICT (id) DO NOTHING`,
+      [a.id, a.title, a.cat, a.dept, `Início · ${a.cat}`, a.status, a.autor, String(a.diasAtras)]
+    );
+  }
+}
+
+async function seedEventos() {
+  for (const b of SEED_BUSCAS) {
+    await raw(
+      `INSERT INTO search_events (user_id, term, normalized, results_count, created_at)
+       SELECT (ARRAY['ana','bruno','carla'])[1 + floor(random() * 3)],
+              $1, $2, $3, now() - (random() * interval '60 days')
+         FROM generate_series(1, $4)`,
+      [b.termo, normalize(b.termo), b.resultados, b.buscas]
+    );
+
+    if (b.artigo) {
+      // O clique é atribuído à busca que o gerou, alguns segundos depois —
+      // é essa diferença que vira "tempo médio até a resposta".
+      await raw(
+        `INSERT INTO result_clicks (search_event_id, user_id, article_id, created_at)
+         SELECT s.id, s.user_id, $1, s.created_at + ((18 + random() * 55) || ' seconds')::interval
+           FROM search_events s
+          WHERE s.normalized = $2 AND s.results_count > 0 AND random() < $3`,
+        [b.artigo, normalize(b.termo), b.taxaClique]
+      );
+    }
+  }
+
+  await raw(
+    `INSERT INTO article_feedback (article_id, user_id, helpful, created_at)
+     SELECT (ARRAY['senha','ferias','reembolso','chamados','2fa'])[1 + floor(random() * 5)],
+            (ARRAY['ana','bruno','carla'])[1 + floor(random() * 3)],
+            random() < 0.87,
+            now() - (random() * interval '30 days')
+       FROM generate_series(1, 64)`
+  );
+}
 
 async function seed() {
   const [{ count }] = await raw<{ count: string }>("SELECT count(*)::text AS count FROM users");
@@ -110,6 +179,9 @@ async function seed() {
       [term, String(i)]
     );
   }
+
+  await seedFluxoEditorial();
+  await seedEventos();
 }
 
 /** Cria o schema e semeia os dados iniciais uma única vez por processo. */

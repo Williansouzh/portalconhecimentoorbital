@@ -110,4 +110,44 @@ CREATE TABLE IF NOT EXISTS recent_searches (
   PRIMARY KEY (user_id, term)
 );
 CREATE INDEX IF NOT EXISTS recent_searches_user_time_idx ON recent_searches (user_id, searched_at DESC);
+
+-- O fluxo editorial tem quatro estágios; a coluna nasceu com três.
+ALTER TABLE articles DROP CONSTRAINT IF EXISTS articles_status_check;
+ALTER TABLE articles ADD CONSTRAINT articles_status_check
+  CHECK (status IN ('publicado','aprovacao','revisao','rascunho'));
+
+-- Eventos que alimentam o painel de gestão. Uma busca gera um search_event;
+-- abrir um resultado gera um result_click ligado a ele, e é essa ligação que
+-- dá tanto a taxa de cliques quanto o tempo até a resposta.
+CREATE TABLE IF NOT EXISTS search_events (
+  id            bigserial PRIMARY KEY,
+  user_id       text REFERENCES users(id) ON DELETE SET NULL,
+  term          text NOT NULL,
+  normalized    text NOT NULL,
+  results_count integer NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS search_events_time_idx ON search_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS search_events_term_idx ON search_events (normalized);
+CREATE INDEX IF NOT EXISTS search_events_empty_idx ON search_events (created_at DESC) WHERE results_count = 0;
+
+CREATE TABLE IF NOT EXISTS result_clicks (
+  id              bigserial PRIMARY KEY,
+  search_event_id bigint REFERENCES search_events(id) ON DELETE CASCADE,
+  user_id         text REFERENCES users(id) ON DELETE SET NULL,
+  article_id      text REFERENCES articles(id) ON DELETE CASCADE,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS result_clicks_event_idx ON result_clicks (search_event_id);
+
+CREATE TABLE IF NOT EXISTS article_feedback (
+  id              bigserial PRIMARY KEY,
+  article_id      text NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  user_id         text REFERENCES users(id) ON DELETE SET NULL,
+  helpful         boolean,
+  outdated_report boolean NOT NULL DEFAULT false,
+  comment         text,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS article_feedback_time_idx ON article_feedback (created_at DESC);
 `;

@@ -1,53 +1,21 @@
 import Link from "next/link";
+import { getMetricas } from "@/lib/metrics";
 
 export const metadata = { title: "Gestão do conhecimento — Portal do Conhecimento" };
 
-const TOP_SEARCHES = [
-  { term: "redefinir senha", searches: "2.184", clicks: "94%", ok: true },
-  { term: "férias", searches: "1.702", clicks: "88%", ok: true },
-  { term: "reembolso", searches: "1.240", clicks: "81%", ok: true },
-  { term: "vale-transporte", searches: "905", clicks: "62%", ok: false },
-  { term: "chamado", searches: "874", clicks: "79%", ok: true },
-];
+function delta(atual: number, anterior: number): { texto: string; cor: string } | null {
+  if (anterior === 0 && atual === 0) return null;
+  const diff = atual - anterior;
+  if (diff === 0) return { texto: "estável vs. período anterior", cor: "var(--text2)" };
+  const seta = diff > 0 ? "↑" : "↓";
+  return { texto: `${seta} ${Math.abs(diff)} vs. período anterior`, cor: diff > 0 ? "var(--warn)" : "var(--ok)" };
+}
 
-const GAPS = [
-  { term: "ponto eletrônico app", meta: "31 buscas · RH" },
-  { term: "troca de crachá", meta: "18 buscas · Operações" },
-  { term: "plano odontológico dependente", meta: "14 buscas · RH" },
-];
+export default async function AdminPage() {
+  const m = await getMetricas();
+  const semResultadoDelta = delta(m.semResultado.atual, m.semResultado.anterior);
+  const totalArtigos = m.artigos.publicados + m.artigos.rascunhos + m.artigos.revisao + m.artigos.aprovacao;
 
-const KANBAN: {
-  title: string;
-  count: number;
-  tone?: "ok";
-  cards: { title: string; meta: string; warn?: boolean }[];
-}[] = [
-  {
-    title: "Rascunho",
-    count: 3,
-    cards: [
-      { title: "Ponto eletrônico no app", meta: "RH · Bruno L." },
-      { title: "Troca de crachá", meta: "Operações · Ana C." },
-    ],
-  },
-  {
-    title: "Em revisão",
-    count: 14,
-    cards: [
-      { title: "Desbloqueio de senha do SAP", meta: "há 18 dias na fila", warn: true },
-      { title: "Reembolso de quilometragem", meta: "Financeiro · Carla M." },
-    ],
-  },
-  { title: "Aprovação", count: 6, cards: [{ title: "Política de viagens 2026", meta: "Aguarda diretoria" }] },
-  {
-    title: "Publicado",
-    count: 342,
-    tone: "ok",
-    cards: [{ title: "Autenticação em dois fatores", meta: "publicado em 21 ago" }],
-  },
-];
-
-export default function AdminPage() {
   return (
     <main className="main-loose">
       <div className="page-wrap">
@@ -57,7 +25,7 @@ export default function AdminPage() {
               Gestão do conhecimento
             </h1>
             <p style={{ margin: 0, font: "400 15.5px/1.5 var(--font-body)", color: "var(--text2)" }}>
-              Visão de agosto de 2026 · 397 conteúdos publicados · 12 equipes responsáveis
+              Últimos 30 dias · {totalArtigos} conteúdos no acervo · {m.artigos.publicados} publicados
             </p>
           </div>
           <Link href="/admin/editor" className="btn btn-primary">
@@ -66,62 +34,108 @@ export default function AdminPage() {
         </div>
 
         <div className="stack" style={{ gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 16, marginBottom: 26 }}>
-          <Metric label="Tempo médio até a resposta" value="41 s" note="↓ 12 s vs. julho" noteColor="var(--ok)" />
-          <Metric label="Avaliações positivas" value="87%" note="3.204 avaliações · 412 negativas" />
-          <Metric label="Pesquisas sem resultado" value="63" note="↑ 9 vs. julho" noteColor="var(--warn)" />
-          <Metric label="Artigos publicados" value="342" note="55 em rascunho" />
-          <Metric label="Aguardando revisão" value="14" note="5 há mais de 15 dias" tone="warn" />
-          <Metric label="Conteúdos desatualizados" value="9" note="fora do prazo de revisão" tone="danger" />
+          <Metric
+            label="Tempo médio até a resposta"
+            value={m.tempoMedioSegundos !== null ? `${m.tempoMedioSegundos.toFixed(0)} s` : "—"}
+            note={m.tempoMedioSegundos !== null ? "da busca até abrir o conteúdo" : "ainda sem cliques medidos"}
+          />
+          <Metric
+            label="Avaliações positivas"
+            value={m.avaliacoes.percentual !== null ? `${m.avaliacoes.percentual}%` : "—"}
+            note={
+              m.avaliacoes.total > 0
+                ? `${m.avaliacoes.total} avaliações · ${m.avaliacoes.negativas} negativas`
+                : "ainda sem avaliações"
+            }
+          />
+          <Metric
+            label="Pesquisas sem resultado"
+            value={String(m.semResultado.atual)}
+            note={semResultadoDelta?.texto ?? "nenhuma no período"}
+            noteColor={semResultadoDelta?.cor}
+          />
+          <Metric label="Artigos publicados" value={String(m.artigos.publicados)} note={`${m.artigos.rascunhos} em rascunho`} />
+          <Metric
+            label="Aguardando revisão"
+            value={String(m.artigos.revisao)}
+            note={m.artigos.revisaoAntiga > 0 ? `${m.artigos.revisaoAntiga} há mais de 15 dias` : "nenhum atrasado"}
+            tone="warn"
+          />
+          <Metric
+            label="Conteúdos desatualizados"
+            value={String(m.artigos.desatualizados)}
+            note="fora do prazo de revisão"
+            tone="danger"
+          />
         </div>
 
         <div className="stack" style={{ gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 26 }}>
           <div className="card" style={{ padding: "20px 22px" }}>
             <h2 style={{ margin: "0 0 14px", font: "600 18px/1.2 var(--font-head)" }}>Assuntos mais pesquisados</h2>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Termo</th>
-                  <th scope="col" style={{ textAlign: "right" }}>
-                    Buscas
-                  </th>
-                  <th scope="col" style={{ textAlign: "right" }}>
-                    Cliques
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {TOP_SEARCHES.map((s) => (
-                  <tr key={s.term}>
-                    <td style={{ fontWeight: 500 }}>{s.term}</td>
-                    <td style={{ textAlign: "right" }}>{s.searches}</td>
-                    <td style={{ textAlign: "right", color: s.ok ? "var(--ok)" : "var(--warn)", fontWeight: 600 }}>{s.clicks}</td>
+            {m.termos.length === 0 ? (
+              <Vazio texto="Nenhuma busca registrada nos últimos 30 dias." />
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Termo</th>
+                    <th scope="col" style={{ textAlign: "right" }}>
+                      Buscas
+                    </th>
+                    <th scope="col" style={{ textAlign: "right" }}>
+                      Cliques
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {m.termos.map((t) => (
+                    <tr key={t.termo}>
+                      <td style={{ fontWeight: 500 }}>{t.termo}</td>
+                      <td style={{ textAlign: "right" }}>{t.buscas.toLocaleString("pt-BR")}</td>
+                      <td
+                        style={{
+                          textAlign: "right",
+                          color: (t.cliquePercentual ?? 0) >= 70 ? "var(--ok)" : "var(--warn)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {t.cliquePercentual !== null ? `${t.cliquePercentual}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
+
           <div className="card" style={{ padding: "20px 22px" }}>
             <h2 style={{ margin: "0 0 4px", font: "600 18px/1.2 var(--font-head)" }}>Pesquisas sem resultado</h2>
             <p style={{ margin: "0 0 14px", font: "400 13.5px/1.4 var(--font-body)", color: "var(--text3)" }}>
               Cada linha é uma lacuna de conteúdo — a ação sugerida já vem pronta.
             </p>
-            <div style={{ display: "grid", gap: 10 }}>
-              {GAPS.map((g) => (
-                <div key={g.term} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--surface2)", borderRadius: 11 }}>
-                  <span style={{ flex: 1, minWidth: 0, font: "600 14.5px/1.3 var(--font-body)" }}>
-                    &ldquo;{g.term}&rdquo;
-                    <span style={{ display: "block", marginTop: 2, font: "400 12.5px/1 var(--font-body)", color: "var(--text3)" }}>{g.meta}</span>
-                  </span>
-                  <Link
-                    href="/admin/editor"
-                    className="btn btn-sm"
-                    style={{ flex: "none", border: "1px solid var(--brand)", background: "var(--surface)", color: "var(--brand-strong)" }}
-                  >
-                    Criar artigo
-                  </Link>
-                </div>
-              ))}
-            </div>
+            {m.lacunas.length === 0 ? (
+              <Vazio texto="Toda busca do período encontrou conteúdo." />
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {m.lacunas.map((g) => (
+                  <div key={g.termo} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--surface2)", borderRadius: 11 }}>
+                    <span style={{ flex: 1, minWidth: 0, font: "600 14.5px/1.3 var(--font-body)" }}>
+                      &ldquo;{g.termo}&rdquo;
+                      <span style={{ display: "block", marginTop: 2, font: "400 12.5px/1 var(--font-body)", color: "var(--text3)" }}>
+                        {g.buscas} {g.buscas === 1 ? "busca" : "buscas"}
+                      </span>
+                    </span>
+                    <Link
+                      href="/admin/editor"
+                      className="btn btn-sm"
+                      style={{ flex: "none", border: "1px solid var(--brand)", background: "var(--surface)", color: "var(--brand-strong)" }}
+                    >
+                      Criar artigo
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -131,55 +145,67 @@ export default function AdminPage() {
             Rascunho → revisão → aprovação → publicação
           </p>
           <div className="stack" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 14 }}>
-            {KANBAN.map((col) => (
-              <div key={col.title} style={{ padding: 14, background: col.tone === "ok" ? "var(--ok-soft)" : "var(--surface2)", borderRadius: 13 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                    font: "600 13px/1 var(--font-head)",
-                    letterSpacing: ".05em",
-                    textTransform: "uppercase",
-                    color: col.tone === "ok" ? "var(--ok)" : "var(--text3)",
-                  }}
-                >
-                  {col.title}
-                  <span style={{ color: col.tone === "ok" ? "inherit" : "var(--text2)" }}>{col.count}</span>
-                </div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {col.cards.map((card) => (
-                    <div
-                      key={card.title}
-                      style={{
-                        padding: 12,
-                        background: "var(--surface)",
-                        border: `1px solid ${card.warn ? "var(--warn-line)" : col.tone === "ok" ? "var(--ok-line)" : "var(--border)"}`,
-                        borderRadius: 10,
-                        font: "500 13.5px/1.4 var(--font-body)",
-                      }}
-                    >
-                      {card.title}
-                      <span
+            {m.fluxo.map((col) => {
+              const publicado = col.status === "Publicado";
+              return (
+                <div key={col.status} style={{ padding: 14, background: publicado ? "var(--ok-soft)" : "var(--surface2)", borderRadius: 13 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 12,
+                      font: "600 13px/1 var(--font-head)",
+                      letterSpacing: ".05em",
+                      textTransform: "uppercase",
+                      color: publicado ? "var(--ok)" : "var(--text3)",
+                    }}
+                  >
+                    {col.status}
+                    <span style={{ color: publicado ? "inherit" : "var(--text2)" }}>{col.total}</span>
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {col.cards.length === 0 && (
+                      <span style={{ font: "400 12.5px/1.4 var(--font-body)", color: "var(--text3)" }}>Nada neste estágio.</span>
+                    )}
+                    {col.cards.map((card) => (
+                      <div
+                        key={card.title}
                         style={{
-                          display: "block",
-                          marginTop: 4,
-                          font: "400 12px/1 var(--font-body)",
-                          color: card.warn ? "var(--warn)" : col.tone === "ok" ? "var(--ok)" : "var(--text3)",
+                          padding: 12,
+                          background: "var(--surface)",
+                          border: `1px solid ${card.warn ? "var(--warn-line)" : publicado ? "var(--ok-line)" : "var(--border)"}`,
+                          borderRadius: 10,
+                          font: "500 13.5px/1.4 var(--font-body)",
                         }}
                       >
-                        {card.meta}
-                      </span>
-                    </div>
-                  ))}
+                        {card.title}
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: 4,
+                            font: "400 12px/1 var(--font-body)",
+                            color: card.warn ? "var(--warn)" : publicado ? "var(--ok)" : "var(--text3)",
+                          }}
+                        >
+                          {card.meta}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
     </main>
+  );
+}
+
+function Vazio({ texto }: { texto: string }) {
+  return (
+    <p style={{ margin: "8px 0", font: "400 13.5px/1.5 var(--font-body)", color: "var(--text3)" }}>{texto}</p>
   );
 }
 
