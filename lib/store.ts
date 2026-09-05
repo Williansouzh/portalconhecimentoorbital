@@ -1,7 +1,7 @@
 import { query } from "./db";
 import { verifyPassword } from "./passwords";
 import type { Role } from "./auth";
-import type { Article } from "./types";
+import type { Article, ArticleStatus } from "./types";
 import { rowToArticle, type ArticleRow } from "./rows";
 
 export { hashPassword, verifyPassword } from "./passwords";
@@ -156,28 +156,72 @@ export async function getRelated(articleId: string, limit = 3): Promise<Article[
   return rows.map(rowToArticle);
 }
 
-export async function createDraft(input: {
-  title: string;
-  summary?: string;
-  cat?: string;
-  dept?: string;
-  keywords?: string[];
-  authorId: string;
-}): Promise<{ id: string; title: string }> {
-  const id = `draft-${Date.now().toString(36)}`;
-  await query(
-    `INSERT INTO articles (id, title, cat, dept, type, read_time, updated_at, snippet, path, status, keywords, author_id)
-     VALUES ($1,$2,$3,$4,'Procedimento','—', current_date, $5, $6, 'revisao', $7, $8)`,
+export async function createArticle(
+  input: Partial<ArticleInput> & { title: string; authorId: string; status?: ArticleStatus }
+): Promise<Article> {
+  const id = `art-${Date.now().toString(36)}`;
+  const cat = input.cat ?? "Tecnologia";
+  const rows = await query<ArticleRow>(
+    `INSERT INTO articles
+       (id, title, cat, dept, type, read_time, updated_at, snippet, content, path, status, keywords, next_review, author_id)
+     VALUES ($1,$2,$3,$4,'Procedimento','2 min', current_date, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING *`,
     [
       id,
       input.title,
-      input.cat ?? "Tecnologia",
+      cat,
       input.dept ?? "TI · Suporte",
       input.summary ?? "",
-      `Início · ${input.cat ?? "Tecnologia"}`,
+      input.content ?? "",
+      `Início · ${cat}`,
+      input.status ?? "rascunho",
       input.keywords ?? [],
+      input.nextReview ?? null,
       input.authorId,
     ]
   );
-  return { id, title: input.title };
+  return rowToArticle(rows[0]);
+}
+
+// ---------- edição de conteúdo ----------
+
+export type ArticleInput = {
+  title: string;
+  summary: string;
+  content: string;
+  cat: string;
+  dept: string;
+  keywords: string[];
+  nextReview: string | null;
+};
+
+export async function updateArticle(id: string, input: ArticleInput): Promise<Article | undefined> {
+  const rows = await query<ArticleRow>(
+    `UPDATE articles
+        SET title = $2, snippet = $3, content = $4, cat = $5, dept = $6,
+            keywords = $7, next_review = $8, path = 'Início · ' || $5
+      WHERE id = $1
+      RETURNING *`,
+    [id, input.title, input.summary, input.content, input.cat, input.dept, input.keywords, input.nextReview]
+  );
+  return rows[0] ? rowToArticle(rows[0]) : undefined;
+}
+
+/** Publicar também carimba a data de atualização exibida no conteúdo. */
+export async function setArticleStatus(id: string, status: ArticleStatus): Promise<Article | undefined> {
+  const rows = await query<ArticleRow>(
+    `UPDATE articles
+        SET status = $2,
+            updated_at = CASE WHEN $2 = 'publicado' THEN current_date ELSE updated_at END,
+            verified = CASE WHEN $2 = 'publicado' THEN true ELSE verified END
+      WHERE id = $1
+      RETURNING *`,
+    [id, status]
+  );
+  return rows[0] ? rowToArticle(rows[0]) : undefined;
+}
+
+export async function listManagedArticles(): Promise<Article[]> {
+  const rows = await query<ArticleRow>("SELECT * FROM articles ORDER BY created_at DESC");
+  return rows.map(rowToArticle);
 }

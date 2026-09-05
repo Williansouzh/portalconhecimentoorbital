@@ -9,7 +9,7 @@ export type Metricas = {
   artigos: { publicados: number; rascunhos: number; revisao: number; aprovacao: number; desatualizados: number; revisaoAntiga: number };
   termos: { termo: string; buscas: number; cliquePercentual: number | null }[];
   lacunas: { termo: string; buscas: number }[];
-  fluxo: { status: string; total: number; cards: { title: string; meta: string; warn: boolean }[] }[];
+  fluxo: { status: string; total: number; cards: { id: string; title: string; meta: string; warn: boolean }[] }[];
 };
 
 const FLUXO_LABEL: Record<string, string> = {
@@ -77,8 +77,8 @@ export async function getMetricas(): Promise<Metricas> {
     ),
     query<{ status: string; total: string }>("SELECT status, count(*)::text AS total FROM articles GROUP BY status"),
     // Dois cards por estágio, os mais recentes.
-    query<{ status: string; title: string; dept: string; dias: string }>(
-      `SELECT status, title, dept, extract(day FROM now() - created_at)::int::text AS dias
+    query<{ id: string; status: string; title: string; dept: string; dias: string }>(
+      `SELECT id, status, title, dept, extract(day FROM now() - created_at)::int::text AS dias
          FROM (
            SELECT *, row_number() OVER (PARTITION BY status ORDER BY created_at DESC) AS n
              FROM articles
@@ -101,6 +101,7 @@ export async function getMetricas(): Promise<Metricas> {
         const dias = Number(c.dias);
         const atrasado = status === "revisao" && dias > 15;
         return {
+          id: c.id,
           title: c.title,
           meta: atrasado ? `há ${dias} dias na fila` : c.dept,
           warn: atrasado,

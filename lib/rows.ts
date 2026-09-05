@@ -17,6 +17,8 @@ export type ArticleRow = {
   path: string;
   status: Article["status"];
   body: ArticleBody | null;
+  content: string | null;
+  next_review: Date | string | null;
 };
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -55,5 +57,7 @@ export function rowToArticle(r: ArticleRow): Article {
     snippet: r.snippet,
     path: r.path,
     status: r.status,
+    content: r.content ?? undefined,
+    nextReview: r.next_review ? toISODate(r.next_review) : undefined,
   };
 }

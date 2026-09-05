@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS articles (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Corpo escrito no editor (markdown enxuto) e prazo de revisão. A coluna
+-- body em jsonb continua servindo aos artigos com passo a passo estruturado.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS content text;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS next_review date;
+
 -- Índice de busca com peso por campo: título pesa mais que palavra-chave,
 -- que pesa mais que categoria/área, que pesa mais que o resumo.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS search tsvector

@@ -36,6 +36,21 @@ São dois serviços: o app (imagem multi-stage rodando o build `standalone` do
 Next como usuário não-root) e o Postgres, cujos dados ficam no volume
 `portal-pgdata`. O app só sobe depois que o healthcheck do banco passa.
 
+## Fluxo editorial
+
+O artigo percorre **rascunho → revisão → aprovação → publicação**, e o botão do
+editor mostra sempre só o próximo passo permitido para quem está editando:
+autor leva até a revisão; aprovar e publicar são do curador (a API responde 403
+para quem não pode). Só o que está publicado entra na busca — rascunho e
+revisão ficam invisíveis para quem lê o portal.
+
+Publicar carimba a data de atualização exibida no conteúdo. O corpo escrito no
+editor usa um markdown enxuto (`## seção` e `1. passo`) e é renderizado na
+página do artigo no mesmo visual dos passos estruturados.
+
+No painel, cada card do fluxo abre o artigo no editor, e o botão "Criar artigo"
+de uma lacuna já leva o termo buscado para o título e as palavras-chave.
+
 ## Métricas
 
 O painel de gestão lê agregações do banco, não números fixos. Cada busca grava
@@ -91,7 +106,8 @@ ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 | `/categorias` | As 8 áreas de conteúdo |
 | `/favoritos?tab=` | Favoritos, histórico, pesquisas recentes e recomendados |
 | `/admin` | Painel de gestão: métricas, lacunas de conteúdo, fluxo editorial |
-| `/admin/editor` | Editor de artigo |
+| `/admin/editor` | Novo artigo (aceita `?termo=` vindo de uma lacuna) |
+| `/admin/editor/[id]` | Editar artigo existente |
 | `/estados` | Catálogo dos 11 estados de carregamento, vazio e erro |
 | `/design-system` | Cores, tipografia, espaçamento, botões, alertas |
 | `/mapa` | Mapa de telas, fluxo principal e decisões de UX |
@@ -102,7 +118,9 @@ ponto de troca é `findUserByEmail`/`verifyPassword` em `lib/store.ts` e a rota
 | --- | --- |
 | `GET /api/search` | Busca com ranking, filtros (categoria/departamento/tipo/data) e ordenação |
 | `GET /api/suggestions` | Sugestões agrupadas (conteúdos, termos, categorias, sistemas, FAQ) |
-| `GET /api/articles/[id]` | Artigo, corpo e relacionados · `POST /api/articles` cria rascunho |
+| `GET /api/articles/[id]` | Artigo, corpo e relacionados |
+| `POST /api/articles` · `PATCH /api/articles/[id]` | Cria e edita conteúdo |
+| `POST /api/articles/[id]/status` | Move o artigo no fluxo editorial |
 | `GET/POST/DELETE /api/favorites` | Favoritos |
 | `GET/POST/DELETE /api/history` | Histórico de leitura |
 | `GET/POST/DELETE /api/searches` | Pesquisas recentes |

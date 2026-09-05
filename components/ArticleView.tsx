@@ -8,6 +8,13 @@ import { CheckIcon, LinkIcon, PrintIcon } from "./Icons";
 
 type Related = { id: string; title: string; cat: string; read: string };
 
+const MESES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+function formatarPrazo(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return `${MESES_CURTO[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 const TOC: [string, string][] = [
   ["antes", "Antes de começar"],
   ["passos", "Passo a passo"],
@@ -218,6 +225,7 @@ export default function ArticleView({
                   <span style={{ color: "var(--text2)", fontWeight: 500 }}>{article.dept}</span>
                 </span>
                 <span>Atualizado em {article.updated}</span>
+                {article.nextReview && <span>Próxima revisão: {formatarPrazo(article.nextReview)}</span>}
               </div>
             </header>
 
@@ -335,6 +343,10 @@ export default function ArticleView({
                   </div>
                 </section>
               </>
+            ) : article.content?.trim() ? (
+              <section style={{ marginBottom: 34 }}>
+                <ConteudoEscrito texto={article.content} />
+              </section>
             ) : (
               <section style={{ marginBottom: 34 }}>
                 <p style={{ margin: 0, font: "400 16.5px/1.7 var(--font-body)", color: "var(--text2)" }}>
@@ -491,5 +503,91 @@ export default function ArticleView({
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * Renderiza o markdown enxuto que o editor produz: "## " vira seção e linhas
+ * iniciadas por número viram passos numerados, no mesmo visual do conteúdo
+ * estruturado.
+ */
+function ConteudoEscrito({ texto }: { texto: string }) {
+  const blocos = texto.split(/\n{2,}/).filter((b) => b.trim());
+
+  return (
+    <>
+      {blocos.map((bloco, i) => {
+        const linhas = bloco.split("\n").filter((l) => l.trim());
+
+        if (linhas[0]?.startsWith("## ")) {
+          const titulo = linhas[0].replace(/^##\s*/, "");
+          const resto = linhas.slice(1);
+          return (
+            <div key={i} style={{ marginBottom: 28 }}>
+              <h2 style={{ margin: "0 0 12px", font: "600 24px/1.25 var(--font-head)" }}>{titulo}</h2>
+              <Linhas linhas={resto} />
+            </div>
+          );
+        }
+        return (
+          <div key={i} style={{ marginBottom: 20 }}>
+            <Linhas linhas={linhas} />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function Linhas({ linhas }: { linhas: string[] }) {
+  const passos = linhas.filter((l) => /^\d+[.)]\s/.test(l));
+  const paragrafos = linhas.filter((l) => !/^\d+[.)]\s/.test(l));
+
+  return (
+    <>
+      {paragrafos.map((p, i) => (
+        <p key={`p${i}`} style={{ margin: "0 0 12px", font: "400 16.5px/1.7 var(--font-body)", color: "var(--text2)" }}>
+          {p}
+        </p>
+      ))}
+      {passos.length > 0 && (
+        <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 14 }}>
+          {passos.map((passo, i) => (
+            <li
+              key={`s${i}`}
+              style={{
+                display: "flex",
+                gap: 15,
+                padding: "17px 19px",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 13,
+                boxShadow: "var(--sh1)",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 30,
+                  height: 30,
+                  flex: "none",
+                  borderRadius: 9,
+                  background: "var(--brand)",
+                  color: "var(--brand-ink)",
+                  display: "grid",
+                  placeItems: "center",
+                  font: "700 14px/1 var(--font-head)",
+                }}
+              >
+                {i + 1}
+              </span>
+              <span style={{ font: "400 15.5px/1.6 var(--font-body)", color: "var(--text2)" }}>
+                {passo.replace(/^\d+[.)]\s*/, "")}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
   );
 }

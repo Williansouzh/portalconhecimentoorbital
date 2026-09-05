@@ -126,7 +126,7 @@ export default async function AdminPage() {
                       </span>
                     </span>
                     <Link
-                      href="/admin/editor"
+                      href={`/admin/editor?termo=${encodeURIComponent(g.termo)}`}
                       className="btn btn-sm"
                       style={{ flex: "none", border: "1px solid var(--brand)", background: "var(--surface)", color: "var(--brand-strong)" }}
                     >
@@ -169,9 +169,12 @@ export default async function AdminPage() {
                       <span style={{ font: "400 12.5px/1.4 var(--font-body)", color: "var(--text3)" }}>Nada neste estágio.</span>
                     )}
                     {col.cards.map((card) => (
-                      <div
-                        key={card.title}
+                      <Link
+                        key={card.id}
+                        href={`/admin/editor/${card.id}`}
                         style={{
+                          display: "block",
+                          color: "inherit",
                           padding: 12,
                           background: "var(--surface)",
                           border: `1px solid ${card.warn ? "var(--warn-line)" : publicado ? "var(--ok-line)" : "var(--border)"}`,
@@ -190,7 +193,7 @@ export default async function AdminPage() {
                         >
                           {card.meta}
                         </span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>

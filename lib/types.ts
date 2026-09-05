@@ -14,8 +14,12 @@ export type Article = {
   kw: string[];
   snippet: string;
   path: string;
-  status: "publicado" | "revisao" | "rascunho";
+  status: ArticleStatus;
+  content?: string;
+  nextReview?: string;
 };
+
+export type ArticleStatus = "publicado" | "aprovacao" | "revisao" | "rascunho";
 
 export type Highlighted = { pre: string; mid: string; post: string };
 
