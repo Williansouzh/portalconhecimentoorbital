@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: portal
+          POSTGRES_USER: portal
+          POSTGRES_PASSWORD: portal
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U portal -d portal"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      AUTH_SECRET: segredo-de-teste-do-ci
+      DATABASE_URL: postgres://portal:portal@127.0.0.1:5433/portal_test
+      TEST_BASE_DATABASE_URL: postgres://portal:portal@127.0.0.1:5433/portal
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Tipos
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint app components lib middleware.ts --ext .ts,.tsx
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
